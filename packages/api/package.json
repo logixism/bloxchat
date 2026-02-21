@@ -1,0 +1,16 @@
+{
+  "name": "@bloxchat/api",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@trpc/server": "^11.10.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.3.0",
+    "dotenv": "^17.3.1",
+    "ioredis": "^5.9.3",
+    "jsonwebtoken": "^9.0.3",
+    "zod": "^4.3.6"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@bloxchat/server",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts --watch ../packages/api/src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@bloxchat/api": "workspace:*",
+    "@trpc/server": "^11.10.0",
+    "@types/cors": "^2.8.19",
+    "@types/ws": "^8.18.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "ws": "^8.19.0"
+  }
+}
