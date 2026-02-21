@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import {
   DEFAULT_API_HOST,
   getApiUrl,
@@ -19,6 +20,7 @@ export const SettingsPage = () => {
   const [activeLogsPath, setActiveLogsPath] = useState("");
   const [defaultLogsPath, setDefaultLogsPath] = useState("");
   const [imageLoadingEnabled, setImageLoadingEnabledInput] = useState(false);
+  const [appVersion, setAppVersion] = useState("Unknown");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -33,12 +35,14 @@ export const SettingsPage = () => {
           currentLogsPath,
           fallbackLogsPath,
           currentImageLoadingEnabled,
+          currentVersion,
         ] = await Promise.all([
           getApiUrl(),
           getLogsPath(),
           invoke<string>("get_roblox_logs_path"),
           invoke<string>("get_default_roblox_logs_path"),
           getImageLoadingEnabled(),
+          getVersion(),
         ]);
 
         setApiUrlInput(currentApiUrl);
@@ -46,6 +50,7 @@ export const SettingsPage = () => {
         setDefaultLogsPath(fallbackLogsPath);
         setLogsPathInput((storedLogsPath || currentLogsPath).trim());
         setImageLoadingEnabledInput(currentImageLoadingEnabled);
+        setAppVersion(currentVersion);
       } catch (loadError) {
         setError(String(loadError));
       } finally {
@@ -155,6 +160,11 @@ export const SettingsPage = () => {
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">App Version</label>
+            <p className="text-xs text-muted-foreground">{appVersion}</p>
           </div>
 
           {error ? (
