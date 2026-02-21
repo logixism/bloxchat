@@ -7,7 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Window } from "@tauri-apps/api/window";
 
 export const MainChat = () => {
-  const { messages, sendMessage } = useChat();
+  const { messages, sendMessage, sendError, chatLimits } = useChat();
   const [text, setText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,11 +57,13 @@ export const MainChat = () => {
     };
   }, []);
 
-  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!text.trim()) return;
-    sendMessage(text);
-    setText("");
+    const didSend = await sendMessage(text);
+    if (didSend) {
+      setText("");
+    }
   };
 
   return (
@@ -98,8 +100,14 @@ export const MainChat = () => {
           value={text}
           onChange={setText}
           messages={messages}
+          maxLength={chatLimits.maxMessageLength}
         />
       </form>
+      {sendError && (
+        <div className="px-2 py-1 text-[11px] text-red-400 border-t border-muted">
+          {sendError}
+        </div>
+      )}
     </div>
   );
 };

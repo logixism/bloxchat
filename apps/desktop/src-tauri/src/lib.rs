@@ -67,7 +67,12 @@ fn set_roblox_logs_path(
         *current = next_path.clone();
     }
 
-    if let Some(tx) = state.watcher_control.lock().map_err(|e| e.to_string())?.as_ref() {
+    if let Some(tx) = state
+        .watcher_control
+        .lock()
+        .map_err(|e| e.to_string())?
+        .as_ref()
+    {
         let _ = tx.send(next_path.clone());
     }
 
@@ -193,13 +198,19 @@ fn start_log_watcher(
 
         loop {
             let (tx, rx) = mpsc::channel();
-            let mut watcher: RecommendedWatcher = RecommendedWatcher::new(
+            let mut watcher = match RecommendedWatcher::new(
                 move |res| {
                     let _ = tx.send(res);
                 },
-                Config::default(),
-            )
-            .unwrap();
+                Config::default().with_poll_interval(std::time::Duration::from_secs(1)),
+            ) {
+                Ok(w) => w,
+                Err(e) => {
+                    eprintln!("failed to create watcher: {:?}", e);
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    continue;
+                }
+            };
 
             if watcher
                 .watch(&log_dir, RecursiveMode::NonRecursive)

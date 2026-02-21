@@ -7,6 +7,12 @@ export type ChatMessage = {
   content: string;
 };
 
+export type ChatLimits = {
+  maxMessageLength: number;
+  rateLimitCount: number;
+  rateLimitWindowMs: number;
+};
+
 export interface JwtUser {
   robloxUserId: string;
   name: string;

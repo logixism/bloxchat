@@ -6,10 +6,11 @@ interface ChatInputProps {
   value: string;
   onChange: (val: string) => void;
   messages: ChatMessage[];
+  maxLength: number;
 }
 
 export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
-  ({ value, onChange, messages }, ref) => {
+  ({ value, onChange, messages, maxLength }, ref) => {
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -27,6 +28,9 @@ export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
     }, [ref]);
 
     const usernames = Array.from(new Set(messages.map((m) => m.author.name)));
+    const trimmedLength = value.trim().length;
+    const remainingChars = maxLength - trimmedLength;
+    const isOverLimit = remainingChars < 0;
 
     useEffect(() => {
       const lastWord = value.split(/\s/).pop() || "";
@@ -80,6 +84,11 @@ export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
           placeholder={`Chatting ${currentJobId === "global" ? "globally. If you're in a server, try rejoining." : `job id ${currentJobId}`}`}
           className="h-10 bg-background border-t border-muted w-full outline-none text-primary text-sm px-2 rounded-b-md"
         />
+        <div
+          className={`absolute right-2 -top-5 text-[10px] ${isOverLimit ? "text-red-400" : "text-muted-foreground"}`}
+        >
+          {remainingChars} chars
+        </div>
         {showSuggestions && (
           <ul className="absolute bottom-10 left-0 w-full bg-background max-h-40 overflow-y-auto z-10">
             {suggestions.map((u, idx) => (
