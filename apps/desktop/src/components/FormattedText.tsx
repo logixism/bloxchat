@@ -1,5 +1,6 @@
 import React from "react";
 import { replaceEmojiShortcodes } from "../lib/emoji";
+import { useAuth } from "../contexts/AuthContext";
 
 interface FormattedTextProps {
   content: string;
@@ -12,6 +13,8 @@ export const FormattedText = ({
   username,
   imageUrls,
 }: FormattedTextProps) => {
+  const { user } = useAuth();
+
   const normalizedContent = replaceEmojiShortcodes(content);
   const regex = /(@\w+)|https?:\/\/[^\s]+/g;
   const parts: React.ReactNode[] = [];
@@ -48,7 +51,7 @@ export const FormattedText = ({
         </a>,
       );
     } else if (matchedText.startsWith("@")) {
-      const isSelf = matchedText.slice(1) === username;
+      const isSelf = matchedText.slice(1) === user?.name;
       parts.push(
         <span
           key={start}

@@ -5,6 +5,7 @@ import { FormattedText } from "./FormattedText";
 import { getImageLoadingEnabled } from "../lib/store";
 import { Button } from "./ui/button";
 import { Star } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 type MediaProbeResult = {
   displayable: boolean;
@@ -32,6 +33,7 @@ export const MessageItem = ({
   isMediaFavorited,
 }: MessageItemProps) => {
   const [mediaUrls, setMediaUrls] = useState<DetectedMedia[]>([]);
+  const { user } = useAuth();
 
   useEffect(() => {
     let cancelled = false;
@@ -91,7 +93,7 @@ export const MessageItem = ({
 
   const isMentioned =
     message.content.includes("@everyone") ||
-    message.content.includes(`@${message.author.name}`);
+    message.content.includes(`@${user?.name}`);
 
   return (
     <div
