@@ -303,6 +303,7 @@ dependencies = [
 name = "bloxchat-desktop"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "home",
  "notify",
  "rdev",

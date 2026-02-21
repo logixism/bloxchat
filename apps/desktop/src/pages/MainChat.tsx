@@ -34,13 +34,57 @@ export const MainChat = () => {
     FavoriteMediaPreview[]
   >([]);
   const [showFavoritesPanel, setShowFavoritesPanel] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContentRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const appWindowRef = useRef<Window | null>(null);
+  const shouldAutoScrollRef = useRef(true);
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  const isNearBottom = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldAutoScrollRef.current) {
+      scrollToBottom("smooth");
+    }
   }, [messages]);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      shouldAutoScrollRef.current = isNearBottom();
+    };
+
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = scrollContentRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      if (shouldAutoScrollRef.current) {
+        scrollToBottom("auto");
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -120,8 +164,6 @@ export const MainChat = () => {
 
   useEffect(() => {
     const unlisten = listen<string>("key-pressed", async (event) => {
-      console.log(event);
-
       if (event.payload === "Slash") {
         await invoke("should_steal_focus").then(async (shouldStealFocus) => {
           if (shouldStealFocus) {
@@ -137,13 +179,16 @@ export const MainChat = () => {
     };
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    const didSend = await sendMessage(replaceEmojiShortcodes(text));
-    if (didSend) {
-      setText("");
+    if (!text.trim()) {
+      invoke("focus_roblox").catch((err) => console.error(err)); // we directly invoke here
+      return;
     }
+    const didQueue = sendMessage(replaceEmojiShortcodes(text));
+    if (!didQueue) return;
+    shouldAutoScrollRef.current = true;
+    setText("");
   };
 
   const isMediaFavorited = (url: string) => favoritedMedia.includes(url);
@@ -173,29 +218,34 @@ export const MainChat = () => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto flex flex-col py-4">
-        {messages.length === 0 && (
-          <div className="text-center text-muted-foreground text-xs">
-            No messages yet. Say hi!
-          </div>
-        )}
-        {messages.map((msg, index) => {
-          const prev = index > 0 ? messages[index - 1] : null;
-          const isContinuation = !!(
-            prev && prev.author.robloxUserId === msg.author.robloxUserId
-          );
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden"
+      >
+        <div ref={scrollContentRef} className="flex flex-col py-4">
+          {messages.length === 0 && (
+            <div className="text-center text-muted-foreground text-xs">
+              No messages yet. Say hi!
+            </div>
+          )}
+          {messages.map((msg, index) => {
+            const prev = index > 0 ? messages[index - 1] : null;
+            const isContinuation = !!(
+              prev && prev.author.robloxUserId === msg.author.robloxUserId
+            );
 
-          return (
-            <MessageItem
-              key={msg.id}
-              message={msg}
-              isContinuation={isContinuation}
-              onToggleFavoriteMedia={handleToggleFavoriteMedia}
-              isMediaFavorited={isMediaFavorited}
-            />
-          );
-        })}
-        <div ref={messagesEndRef} />
+            return (
+              <MessageItem
+                key={msg.clientId}
+                message={msg}
+                isContinuation={isContinuation}
+                onToggleFavoriteMedia={handleToggleFavoriteMedia}
+                isMediaFavorited={isMediaFavorited}
+              />
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       <div className="relative">

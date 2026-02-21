@@ -8,9 +8,23 @@ import { ChatProvider } from "./contexts/ChatContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { LoginPage } from "./pages/LoginPage";
 import { RequireAuth } from "./components/RequireAuth";
-import { getLogsPath } from "./lib/store";
+import { getGuiOpacity, getLogsPath } from "./lib/store";
 
 export default function App() {
+  useEffect(() => {
+    const applyGuiOpacity = async () => {
+      const opacity = await getGuiOpacity();
+      document.documentElement.style.setProperty(
+        "--gui-opacity",
+        opacity.toString(),
+      );
+    };
+
+    applyGuiOpacity().catch((error) => {
+      console.error("Failed to apply GUI opacity:", error);
+    });
+  }, []);
+
   useEffect(() => {
     const syncLogsPath = async () => {
       const logsPath = (await getLogsPath()).trim();

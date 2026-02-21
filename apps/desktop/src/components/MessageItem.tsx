@@ -1,4 +1,4 @@
-import { ChatMessage } from "@bloxchat/api";
+import type { UiChatMessage } from "../contexts/ChatContext";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FormattedText } from "./FormattedText";
@@ -21,7 +21,7 @@ type DetectedMedia = {
 };
 
 interface MessageItemProps {
-  message: ChatMessage;
+  message: UiChatMessage;
   isContinuation?: boolean;
   onToggleFavoriteMedia?: (url: string) => void;
   isMediaFavorited?: (url: string) => boolean;
@@ -61,6 +61,8 @@ export const MessageItem = ({
 }: MessageItemProps) => {
   const [mediaUrls, setMediaUrls] = useState<DetectedMedia[]>([]);
   const { user } = useAuth();
+  const isSending = message.localStatus === "sending";
+  const isFailed = message.localStatus === "failed";
 
   useEffect(() => {
     let cancelled = false;
@@ -114,7 +116,7 @@ export const MessageItem = ({
     return () => {
       cancelled = true;
     };
-  }, [message]);
+  }, [message.content]);
 
   const mediaSourceUrls = mediaUrls.map((media) => media.sourceUrl);
 
@@ -128,6 +130,7 @@ export const MessageItem = ({
         group w-full px-4 transition-colors
         ${isMentioned ? "bg-amber-300/10 hover:bg-amber-300/20" : "hover:bg-muted/50"}
         ${isContinuation ? "mt-0" : "mt-2"}
+        ${isSending ? "opacity-70" : ""}
       `}
     >
       <div className="flex items-start gap-3 py-0">
@@ -153,23 +156,24 @@ export const MessageItem = ({
             isContinuation={isContinuation}
           />
 
-          <div className="text-sm leading-relaxed">
+          <div className="text-sm leading-relaxed break-words">
             <FormattedText
               content={message.content}
               imageUrls={mediaSourceUrls}
+              tone={isFailed ? "error" : "default"}
             />
           </div>
 
           {mediaUrls.map((media) => (
             <div
               key={media.sourceUrl}
-              className="mt-2 relative group/media w-fit"
+              className="mt-2 relative group/media w-fit max-w-full"
             >
               <a
                 href={media.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block"
+                className="block max-w-full"
               >
                 {media.kind === "video" ? (
                   <video
@@ -178,7 +182,7 @@ export const MessageItem = ({
                     loop
                     muted
                     playsInline
-                    className="max-w-md max-h-40 rounded-lg border border-border object-contain bg-muted/20"
+                    className="block max-w-full sm:max-w-md max-h-40 rounded-lg border border-border object-contain bg-muted/20"
                   />
                 ) : (
                   <img
@@ -186,7 +190,7 @@ export const MessageItem = ({
                     alt="embedded content"
                     loading="lazy"
                     decoding="async"
-                    className="max-w-md max-h-40 rounded-lg border border-border object-contain bg-muted/20"
+                    className="block max-w-full sm:max-w-md max-h-40 rounded-lg border border-border object-contain bg-muted/20"
                   />
                 )}
               </a>

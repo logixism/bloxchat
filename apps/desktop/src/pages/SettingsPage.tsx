@@ -4,9 +4,11 @@ import { getVersion } from "@tauri-apps/api/app";
 import {
   DEFAULT_API_HOST,
   getApiUrl,
+  getGuiOpacity,
   getImageLoadingEnabled,
   getLogsPath,
   setApiUrl,
+  setGuiOpacity,
   setImageLoadingEnabled,
   setLogsPath,
 } from "../lib/store";
@@ -20,10 +22,13 @@ export const SettingsPage = () => {
   const [activeLogsPath, setActiveLogsPath] = useState("");
   const [defaultLogsPath, setDefaultLogsPath] = useState("");
   const [imageLoadingEnabled, setImageLoadingEnabledInput] = useState(false);
+  const [guiOpacity, setGuiOpacityInput] = useState(1);
   const [appVersion, setAppVersion] = useState("Unknown");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [initialApiUrl, setInitialApiUrl] = useState("");
+  const [initialGuiOpacity, setInitialGuiOpacity] = useState(1);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,6 +40,7 @@ export const SettingsPage = () => {
           currentLogsPath,
           fallbackLogsPath,
           currentImageLoadingEnabled,
+          currentGuiOpacity,
           currentVersion,
         ] = await Promise.all([
           getApiUrl(),
@@ -42,14 +48,18 @@ export const SettingsPage = () => {
           invoke<string>("get_roblox_logs_path"),
           invoke<string>("get_default_roblox_logs_path"),
           getImageLoadingEnabled(),
+          getGuiOpacity(),
           getVersion(),
         ]);
 
         setApiUrlInput(currentApiUrl);
+        setInitialApiUrl(currentApiUrl);
         setActiveLogsPath(currentLogsPath);
         setDefaultLogsPath(fallbackLogsPath);
         setLogsPathInput((storedLogsPath || currentLogsPath).trim());
         setImageLoadingEnabledInput(currentImageLoadingEnabled);
+        setGuiOpacityInput(currentGuiOpacity);
+        setInitialGuiOpacity(currentGuiOpacity);
         setAppVersion(currentVersion);
       } catch (loadError) {
         setError(String(loadError));
@@ -69,6 +79,8 @@ export const SettingsPage = () => {
     try {
       const normalizedApiUrl = await setApiUrl(apiUrl);
       const nextLogsPath = (logsPath.trim() || defaultLogsPath).trim();
+      const nextOpacity = await setGuiOpacity(guiOpacity);
+      const shouldReload = normalizedApiUrl !== initialApiUrl;
 
       await invoke("set_roblox_logs_path", { path: nextLogsPath });
       await setLogsPath(nextLogsPath);
@@ -77,7 +89,16 @@ export const SettingsPage = () => {
       setApiUrlInput(normalizedApiUrl);
       setLogsPathInput(nextLogsPath);
       setActiveLogsPath(nextLogsPath);
-      window.location.reload();
+      setGuiOpacityInput(nextOpacity);
+      document.documentElement.style.setProperty(
+        "--gui-opacity",
+        nextOpacity.toString(),
+      );
+      setInitialApiUrl(normalizedApiUrl);
+      setInitialGuiOpacity(nextOpacity);
+      if (shouldReload) {
+        window.location.reload();
+      }
     } catch (saveError) {
       setError(String(saveError));
     } finally {
@@ -86,7 +107,7 @@ export const SettingsPage = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-background text-primary p-6">
+    <div className="flex h-screen w-screen text-primary p-6">
       <div className="w-full max-w-2xl space-y-6">
         <h1 className="text-xl font-bold">Settings</h1>
 
@@ -104,7 +125,7 @@ export const SettingsPage = () => {
               placeholder={DEFAULT_API_HOST}
             />
             <p className="text-xs text-muted-foreground">
-              Default: {DEFAULT_API_HOST}. The app reloads after saving.
+              Default: {DEFAULT_API_HOST}. Changing this reloads the app.
             </p>
           </div>
 
@@ -162,6 +183,38 @@ export const SettingsPage = () => {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <label htmlFor="gui-opacity" className="text-sm font-medium">
+              GUI Opacity
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                id="gui-opacity"
+                type="range"
+                min={0.2}
+                max={1}
+                step={0.05}
+                value={guiOpacity}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value);
+                  setGuiOpacityInput(nextValue);
+                  document.documentElement.style.setProperty(
+                    "--gui-opacity",
+                    nextValue.toString(),
+                  );
+                }}
+                disabled={isLoading || isSaving}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground w-12 text-right">
+                {Math.round(guiOpacity * 100)}%
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Controls the transparency of the app background.
+            </p>
+          </div>
+
           <div className="space-y-1">
             <label className="text-sm font-medium">App Version</label>
             <p className="text-xs text-muted-foreground">{appVersion}</p>
@@ -175,7 +228,13 @@ export const SettingsPage = () => {
             {isSaving ? "Saving..." : "Save Settings"}
           </Button>
           <Button
-            onClick={() => navigate("/")}
+            onClick={() => {
+              document.documentElement.style.setProperty(
+                "--gui-opacity",
+                initialGuiOpacity.toString(),
+              );
+              navigate("/");
+            }}
             variant={"secondary"}
             className="ml-2"
             disabled={isLoading || isSaving}

@@ -8,6 +8,7 @@ type StoreSchema = {
   apiUrl: string;
   logsPath: string;
   imageLoadingEnabled: boolean;
+  guiOpacity: number;
   favoritedMedia: string[];
 };
 
@@ -19,6 +20,7 @@ const defaults: StoreSchema = {
   apiUrl: DEFAULT_API_URL,
   logsPath: "",
   imageLoadingEnabled: false,
+  guiOpacity: 1,
   favoritedMedia: [],
 };
 
@@ -86,6 +88,28 @@ export const getImageLoadingEnabled = async () =>
 export const setImageLoadingEnabled = async (value: boolean) => {
   await storeSet("imageLoadingEnabled", value);
   return value;
+};
+
+export const normalizeGuiOpacity = (value: unknown) => {
+  const numeric =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : Number.NaN;
+
+  if (!Number.isFinite(numeric)) return defaults.guiOpacity;
+
+  return Math.max(0.2, Math.min(1, numeric));
+};
+
+export const getGuiOpacity = async () =>
+  normalizeGuiOpacity(await storeGet("guiOpacity"));
+
+export const setGuiOpacity = async (value: number) => {
+  const normalized = normalizeGuiOpacity(value);
+  await storeSet("guiOpacity", normalized);
+  return normalized;
 };
 
 export const getFavoritedMedia = async () => storeGet("favoritedMedia");

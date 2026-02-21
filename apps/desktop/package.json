@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "bunx tauri dev"
+    "tauri": "tauri dev"
   },
   "dependencies": {
     "@bloxchat/api": "workspace:*",

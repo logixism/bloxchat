@@ -25,8 +25,6 @@ const EMOJI_ENTRIES: EmojiEntry[] = data.flatMap((item: any) => {
   }));
 });
 
-console.log(EMOJI_ENTRIES);
-
 const EMOJI_BY_SHORTCODE = new Map(
   EMOJI_ENTRIES.map((entry) => [entry.shortcode.toLowerCase(), entry.emoji]),
 );
