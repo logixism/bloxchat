@@ -1,6 +1,5 @@
 import { IncomingMessage, ServerResponse } from "http";
 import { inferAsyncReturnType } from "@trpc/server";
-import { TRPCError } from "@trpc/server";
 import jwt from "jsonwebtoken";
 import { env } from "./config/env";
 import { JwtUser } from "./types";
