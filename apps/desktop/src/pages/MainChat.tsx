@@ -305,7 +305,7 @@ export const MainChat = () => {
                         }
                         title="Unfavorite media"
                       >
-                        <Star className="fill-amber-400 text-amber-400" />
+                        <Star className="fill-brand text-brand" />
                       </Button>
                     </div>
                   </div>
@@ -336,7 +336,7 @@ export const MainChat = () => {
             onClick={() => setShowFavoritesPanel((prev) => !prev)}
             title="Favorited media"
           >
-            <Star className={"fill-amber-400 text-amber-400"} />
+            <Star className={"fill-brand text-brand"} />
           </Button>
         </form>
       </div>

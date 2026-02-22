@@ -209,7 +209,7 @@ export const MessageItem = ({
                 <Star
                   className={
                     isMediaFavorited?.(media.sourceUrl)
-                      ? "fill-amber-400 text-amber-400"
+                      ? "fill-brand text-brand"
                       : "text-foreground"
                   }
                 />
