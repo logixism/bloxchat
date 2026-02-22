@@ -38,17 +38,16 @@ export const MessageAuthor = ({
   username,
   isContinuation,
 }: MessageAuthorProps) => {
-  const [isHovered, setIsHovered] = useState(false);
-
   if (isContinuation) return null;
 
   return (
-    <span
-      className={`font-bold text-sm`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {isHovered ? username : displayName}
+    <span className="relative inline-grid text-sm font-bold leading-none mb-1">
+      <span className="transition-opacity duration-150 ease-out group-hover/message-head:opacity-0">
+        {displayName}
+      </span>
+      <span className="absolute inset-0 opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:opacity-100">
+        {username}
+      </span>
     </span>
   );
 };
@@ -133,18 +132,30 @@ export const MessageItem = ({
         ${isSending ? "opacity-70" : ""}
       `}
     >
-      <div className="flex items-start gap-3 py-0">
+      <div
+        className={`flex items-start gap-3 py-0 ${isContinuation ? "" : "group/message-head"}`}
+      >
         {!isContinuation ? (
-          <img
-            src={message.author.picture}
-            alt="avatar"
-            className="w-10 h-10 rounded-full mt-1 shrink-0"
+          <button
+            type="button"
+            className="relative shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-2"
             onClick={() =>
               openUrl(
                 `https://roblox.com/users/${message.author.robloxUserId}/profile`,
               )
             }
-          />
+            title="Open profile"
+            aria-label={`Open ${message.author.displayName}'s profile`}
+          >
+            <img
+              src={message.author.picture}
+              alt={`${message.author.displayName} avatar`}
+              className="h-10 w-10 rounded-full cursor-pointer transition duration-150 ease-out group-hover/message-head:ring-2 group-hover/message-head:ring-brand/40"
+            />
+            <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[10px] font-semibold text-white opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:bg-black/35 group-hover/message-head:opacity-100">
+              Profile
+            </span>
+          </button>
         ) : (
           <div className="w-10 shrink-0" />
         )}
@@ -156,7 +167,7 @@ export const MessageItem = ({
             isContinuation={isContinuation}
           />
 
-          <div className="text-sm leading-relaxed break-words">
+          <div className="text-sm leading-relaxed wrap-break-word">
             <FormattedText
               content={message.content}
               imageUrls={mediaSourceUrls}
