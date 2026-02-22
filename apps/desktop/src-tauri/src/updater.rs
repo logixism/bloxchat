@@ -118,7 +118,7 @@ fn run_installer_and_exit(app: &AppHandle, installer_path: &Path) -> Result<()> 
     let installer_escaped = installer.replace('\'', "''");
     let current_exe_escaped = current_exe.replace('\'', "''");
     let script = format!(
-        "Start-Process -FilePath 'msiexec' -ArgumentList '/i ''{installer_escaped}'' /passive /norestart' -Wait; Start-Process -FilePath '{current_exe_escaped}'"
+        "Start-Process -FilePath 'msiexec' -ArgumentList '/i \"{installer_escaped}\" /passive /norestart' -Wait; Start-Process -FilePath '{current_exe_escaped}'"
     );
 
     Command::new("powershell")
