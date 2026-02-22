@@ -122,7 +122,7 @@ export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
               ? "globally. If you're in a server, try rejoining."
               : `job id ${currentJobId}`
           }`}
-          className="h-10 bg-background w-full outline-none text-primary text-sm px-2 rounded-b-md"
+          className="h-10 w-full outline-none text-primary text-sm px-2"
         />
 
         <div
