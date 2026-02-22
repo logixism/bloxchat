@@ -220,7 +220,7 @@ export const MainChat = () => {
     endingCaptureRef.current = true;
 
     try {
-      await invoke("stop_chat_capture", { reason, _reason: reason });
+      await invoke("stop_chat_capture", { reason });
     } catch (err) {
       console.error("Failed to stop chat capture:", err);
     } finally {
