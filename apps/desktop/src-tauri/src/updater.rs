@@ -110,11 +110,21 @@ fn run_installer_and_exit(app: &AppHandle, installer_path: &Path) -> Result<()> 
     let installer = installer_path
         .to_str()
         .context("installer path is not valid UTF-8")?;
+    let current_exe = std::env::current_exe().context("resolve current executable path")?;
+    let current_exe = current_exe
+        .to_str()
+        .context("current executable path is not valid UTF-8")?;
 
-    Command::new("msiexec")
-        .args(["/i", installer, "/passive", "/norestart"])
+    let installer_escaped = installer.replace('\'', "''");
+    let current_exe_escaped = current_exe.replace('\'', "''");
+    let script = format!(
+        "Start-Process -FilePath 'msiexec' -ArgumentList '/i ''{installer_escaped}'' /passive /norestart' -Wait; Start-Process -FilePath '{current_exe_escaped}'"
+    );
+
+    Command::new("powershell")
+        .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &script])
         .spawn()
-        .context("spawn msiexec")?;
+        .context("spawn installer relaunch helper")?;
 
     app.exit(0);
     Ok(())
