@@ -95,7 +95,7 @@ export const normalizeGuiOpacity = (value: unknown) => {
     typeof value === "number"
       ? value
       : typeof value === "string"
-        ? Number(value)
+        ? parseFloat(value)
         : Number.NaN;
 
   if (!Number.isFinite(numeric)) return defaults.guiOpacity;
