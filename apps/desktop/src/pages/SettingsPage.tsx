@@ -15,6 +15,7 @@ import {
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
+import { Slider } from "../components/ui/slider";
 
 export const SettingsPage = () => {
   const [apiUrl, setApiUrlInput] = useState("");
@@ -188,15 +189,14 @@ export const SettingsPage = () => {
               GUI Opacity
             </label>
             <div className="flex items-center gap-3">
-              <input
+              <Slider
                 id="gui-opacity"
-                type="range"
                 min={0.2}
                 max={1}
-                step={0.05}
-                value={guiOpacity}
-                onChange={(event) => {
-                  const nextValue = Number(event.target.value);
+                step={0.02}
+                value={[guiOpacity]}
+                onValueChange={(event) => {
+                  const nextValue = Number(event[0]);
                   setGuiOpacityInput(nextValue);
                   document.documentElement.style.setProperty(
                     "--gui-opacity",
