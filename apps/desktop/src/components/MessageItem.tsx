@@ -45,7 +45,7 @@ export const MessageAuthor = ({
   if (isContinuation) return null;
 
   return (
-    <span className="relative inline-grid mb-1 text-sm font-bold leading-none text-foreground chat-readable-text">
+    <span className="relative inline-grid mt-2 mb-0.5 text-sm font-bold leading-none text-foreground chat-readable-text">
       <span className="transition-opacity duration-150 ease-out group-hover/message-head:opacity-0">
         {displayName}
       </span>
@@ -70,8 +70,7 @@ export const MessageItem = ({
   const { user } = useAuth();
   const isSending = message.localStatus === "sending";
   const isFailed = message.localStatus === "failed";
-  const canReply =
-    !isSending && !isFailed && !message.id.startsWith("local-");
+  const canReply = !isSending && !isFailed && !message.id.startsWith("local-");
 
   useEffect(() => {
     let cancelled = false;
@@ -131,98 +130,98 @@ export const MessageItem = ({
 
   const isMentioned =
     message.content.includes("@everyone") ||
-    message.content.includes(`@${user?.username}`);
+    message.content.includes(`@${user?.username}`) ||
+    replyPreview?.author === user?.displayName;
 
   return (
     <div
       data-message-id={message.id}
       className={`
-        group relative w-full rounded-md px-4 transition-colors
+        group relative w-full px-4 transition-colors
         ${isMentioned ? "bg-amber-300/10 hover:bg-amber-300/20" : "hover:bg-muted/50"}
         ${isContinuation ? "mt-0" : "mt-2"}
         ${isSending ? "opacity-70" : ""}
-        ${isHighlighted ? "ring-2 ring-brand/50 bg-brand/5" : ""}
+        ${isHighlighted ? "bg-brand/10" : ""}
       `}
     >
-      {onReply && canReply && (
-        <button
-          type="button"
-          className="absolute right-2 top-2 z-10 rounded-md border border-border bg-background/90 p-1 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-          onClick={() => onReply(message)}
-          title="Reply"
-          aria-label="Reply"
-        >
-          <Reply className="h-3.5 w-3.5" />
-        </button>
-      )}
       <div
-        className={`flex items-start gap-3 py-0 ${isContinuation ? "" : "group/message-head"}`}
+        className={`flex items-start flex-col pl-12 ${isContinuation ? "" : "group/message-head"}`}
       >
-        {!isContinuation ? (
+        {onReply && canReply && (
           <button
             type="button"
-            className="relative shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-2"
-            onClick={() =>
-              openUrl(
-                `https://roblox.com/users/${message.author.robloxUserId}/profile`,
-              )
-            }
-            title="Open profile"
-            aria-label={`Open ${message.author.displayName}'s profile`}
+            className="absolute right-2 -top-2 z-10 rounded-md border border-border bg-background/90 p-1 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 cursor-pointer"
+            onClick={() => onReply(message)}
+            title="Reply"
+            aria-label="Reply"
           >
-            <img
-              src={message.author.picture}
-              alt={`${message.author.displayName} avatar`}
-              className="h-10 w-10 rounded-full cursor-pointer transition duration-150 ease-out group-hover/message-head:ring-2 group-hover/message-head:ring-brand/40"
-            />
-            <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[10px] font-semibold text-white opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:bg-black/35 group-hover/message-head:opacity-100">
-              Profile
-            </span>
+            <Reply className="h-3.5 w-3.5" />
           </button>
-        ) : (
-          <div className="w-10 shrink-0" />
         )}
 
-        <div className="flex flex-col min-w-0">
+        {replyPreview && message.replyToId ? (
+          onJumpToReplyTarget ? (
+            <button
+              type="button"
+              className="group/reply-preview flex w-full items-center gap-2 text-left text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+              onClick={() => onJumpToReplyTarget(message.replyToId!)}
+              title="Jump to original message"
+              aria-label="Jump to original message"
+            >
+              <div className="absolute w-6 h-2 rounded-tl-[4px] border-muted-foreground left-9 top-2 border-t-2 border-l-2 group-hover/reply-preview:border-foreground/85"></div>
+              <span className="w-full truncate">
+                <span className="font-semibold text-foreground/80">
+                  @{replyPreview.author}
+                </span>
+                <span className="ml-1 text-muted-foreground">
+                  {replyPreview.content}
+                </span>
+              </span>
+            </button>
+          ) : (
+            <div className="flex w-full items-center gap-2 text-xs text-muted-foreground">
+              <div className="absolute w-6 h-2 rounded-tl-[4px] border-muted-foreground left-9 top-2 border-t-2 border-l-2 hover:border-foreground"></div>
+              <span className="w-full truncate">
+                <span className="font-semibold text-foreground/80">
+                  @{replyPreview.author}
+                </span>
+                <span className="ml-1 text-muted-foreground">
+                  {replyPreview.content}
+                </span>
+              </span>
+            </div>
+          )
+        ) : null}
+
+        <div className="flex flex-col w-full">
+          {!isContinuation ? (
+            <button
+              type="button"
+              className="absolute pt-1 left-4 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-2"
+              onClick={() =>
+                openUrl(
+                  `https://roblox.com/users/${message.author.robloxUserId}/profile`,
+                )
+              }
+              title="Open profile"
+              aria-label={`Open ${message.author.displayName}'s profile`}
+            >
+              <img
+                src={message.author.picture}
+                alt={`${message.author.displayName} avatar`}
+                className="h-10 w-10 rounded-full cursor-pointer transition duration-150 ease-out group-hover/message-head:ring-2 group-hover/message-head:ring-brand/40"
+              />
+              <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[10px] font-semibold text-white opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:bg-black/35 group-hover/message-head:opacity-100">
+                Profile
+              </span>
+            </button>
+          ) : null}
+
           <MessageAuthor
             username={message.author.username}
             displayName={message.author.displayName}
             isContinuation={isContinuation}
           />
-
-          {replyPreview && message.replyToId ? (
-            onJumpToReplyTarget ? (
-              <button
-                type="button"
-                className="mb-1 flex min-w-0 items-center gap-2 text-left text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => onJumpToReplyTarget(message.replyToId!)}
-                title="Jump to original message"
-                aria-label="Jump to original message"
-              >
-                <span className="h-3 w-0.5 shrink-0 rounded-full bg-muted-foreground/50" />
-                <span className="min-w-0 truncate">
-                  <span className="font-semibold text-foreground/80">
-                    {replyPreview.author}
-                  </span>
-                  <span className="ml-1 text-muted-foreground">
-                    {replyPreview.content}
-                  </span>
-                </span>
-              </button>
-            ) : (
-              <div className="mb-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                <span className="h-3 w-0.5 shrink-0 rounded-full bg-muted-foreground/50" />
-                <span className="min-w-0 truncate">
-                  <span className="font-semibold text-foreground/80">
-                    {replyPreview.author}
-                  </span>
-                  <span className="ml-1 text-muted-foreground">
-                    {replyPreview.content}
-                  </span>
-                </span>
-              </div>
-            )
-          ) : null}
 
           <div className="wrap-break-word text-sm leading-relaxed text-foreground/95 chat-readable-text">
             <FormattedText

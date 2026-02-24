@@ -269,9 +269,7 @@ export const MainChat = () => {
       typeof CSS !== "undefined" && typeof CSS.escape === "function"
         ? CSS.escape(messageId)
         : messageId.replace(/"/g, '\\"');
-    const element = document.querySelector(
-      `[data-message-id="${escapedId}"]`,
-    );
+    const element = document.querySelector(`[data-message-id="${escapedId}"]`);
     if (!element) return;
     shouldAutoScrollRef.current = false;
     element.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -292,16 +290,18 @@ export const MainChat = () => {
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden"
       >
-        <div ref={scrollContentRef} className="flex flex-col py-4">
+        <div ref={scrollContentRef} className="flex flex-col pt-2 pb-4">
           {messages.length === 0 && (
-            <div className="text-center text-muted-foreground text-xs">
+            <div className="text-center text-muted-foreground text-xs pt-2">
               No messages yet. Say hi!
             </div>
           )}
           {messages.map((msg, index) => {
             const prev = index > 0 ? messages[index - 1] : null;
             const isContinuation = !!(
-              prev && prev.author.robloxUserId === msg.author.robloxUserId
+              prev &&
+              prev.author.robloxUserId === msg.author.robloxUserId &&
+              !msg.replyToId
             );
             const replyTargetMessage = msg.replyToId
               ? messageById.get(msg.replyToId)
