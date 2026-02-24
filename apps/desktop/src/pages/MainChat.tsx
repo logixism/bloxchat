@@ -120,6 +120,20 @@ export const MainChat = () => {
   }, []);
 
   useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      if (shouldAutoScrollRef.current) {
+        scrollToBottom("auto");
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     (async () => {
       appWindowRef.current = await Window.getByLabel("main");
     })();
