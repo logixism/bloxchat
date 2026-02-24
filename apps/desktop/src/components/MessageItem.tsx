@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { FormattedText } from "./FormattedText";
 import { getImageLoadingEnabled } from "../lib/store";
 import { Button } from "./ui/button";
-import { Star } from "lucide-react";
+import { Reply, Star } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
@@ -25,6 +25,10 @@ interface MessageItemProps {
   isContinuation?: boolean;
   onToggleFavoriteMedia?: (url: string) => void;
   isMediaFavorited?: (url: string) => boolean;
+  onReply?: (message: UiChatMessage) => void;
+  replyPreview?: { author: string; content: string } | null;
+  onJumpToReplyTarget?: (replyToId: string) => void;
+  isHighlighted?: boolean;
 }
 
 interface MessageAuthorProps {
@@ -57,11 +61,17 @@ export const MessageItem = ({
   isContinuation = false,
   onToggleFavoriteMedia,
   isMediaFavorited,
+  onReply,
+  replyPreview,
+  onJumpToReplyTarget,
+  isHighlighted = false,
 }: MessageItemProps) => {
   const [mediaUrls, setMediaUrls] = useState<DetectedMedia[]>([]);
   const { user } = useAuth();
   const isSending = message.localStatus === "sending";
   const isFailed = message.localStatus === "failed";
+  const canReply =
+    !isSending && !isFailed && !message.id.startsWith("local-");
 
   useEffect(() => {
     let cancelled = false;
@@ -125,13 +135,26 @@ export const MessageItem = ({
 
   return (
     <div
+      data-message-id={message.id}
       className={`
-        group w-full px-4 transition-colors
+        group relative w-full rounded-md px-4 transition-colors
         ${isMentioned ? "bg-amber-300/10 hover:bg-amber-300/20" : "hover:bg-muted/50"}
         ${isContinuation ? "mt-0" : "mt-2"}
         ${isSending ? "opacity-70" : ""}
+        ${isHighlighted ? "ring-2 ring-brand/50 bg-brand/5" : ""}
       `}
     >
+      {onReply && canReply && (
+        <button
+          type="button"
+          className="absolute right-2 top-2 z-10 rounded-md border border-border bg-background/90 p-1 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+          onClick={() => onReply(message)}
+          title="Reply"
+          aria-label="Reply"
+        >
+          <Reply className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div
         className={`flex items-start gap-3 py-0 ${isContinuation ? "" : "group/message-head"}`}
       >
@@ -166,6 +189,40 @@ export const MessageItem = ({
             displayName={message.author.displayName}
             isContinuation={isContinuation}
           />
+
+          {replyPreview && message.replyToId ? (
+            onJumpToReplyTarget ? (
+              <button
+                type="button"
+                className="mb-1 flex min-w-0 items-center gap-2 text-left text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => onJumpToReplyTarget(message.replyToId!)}
+                title="Jump to original message"
+                aria-label="Jump to original message"
+              >
+                <span className="h-3 w-0.5 shrink-0 rounded-full bg-muted-foreground/50" />
+                <span className="min-w-0 truncate">
+                  <span className="font-semibold text-foreground/80">
+                    {replyPreview.author}
+                  </span>
+                  <span className="ml-1 text-muted-foreground">
+                    {replyPreview.content}
+                  </span>
+                </span>
+              </button>
+            ) : (
+              <div className="mb-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                <span className="h-3 w-0.5 shrink-0 rounded-full bg-muted-foreground/50" />
+                <span className="min-w-0 truncate">
+                  <span className="font-semibold text-foreground/80">
+                    {replyPreview.author}
+                  </span>
+                  <span className="ml-1 text-muted-foreground">
+                    {replyPreview.content}
+                  </span>
+                </span>
+              </div>
+            )
+          ) : null}
 
           <div className="wrap-break-word text-sm leading-relaxed text-foreground/95 chat-readable-text">
             <FormattedText
