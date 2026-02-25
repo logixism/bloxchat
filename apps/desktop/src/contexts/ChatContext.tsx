@@ -43,6 +43,7 @@ type ChatContextType = {
   chatLimits: ChatLimits;
   sendError: string | null;
   sendMessage: (text: string, replyToId?: string | null) => boolean;
+  clearMessages: () => void;
 };
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -311,6 +312,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     return true;
   };
 
+  const clearMessages = () => {
+    setMessages([]);
+    setSendError(null);
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -321,6 +327,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         chatLimits,
         sendError,
         sendMessage,
+        clearMessages,
       }}
     >
       {children}

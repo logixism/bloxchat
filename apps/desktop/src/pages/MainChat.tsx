@@ -13,6 +13,7 @@ import {
 import { Button } from "../components/ui/button";
 import { Star, X } from "lucide-react";
 import { replaceEmojiShortcodes } from "../lib/emoji";
+import { executeChatCommand } from "../lib/commands";
 
 type MediaProbeResult = {
   displayable: boolean;
@@ -27,7 +28,8 @@ type FavoriteMediaPreview = {
 };
 
 export const MainChat = () => {
-  const { messages, sendMessage, sendError, chatLimits } = useChat();
+  const { messages, sendMessage, sendError, chatLimits, clearMessages } =
+    useChat();
   const [text, setText] = useState("");
   const [favoritedMedia, setFavoritedMedia] = useState<string[]>([]);
   const [favoriteMediaPreviews, setFavoriteMediaPreviews] = useState<
@@ -228,10 +230,25 @@ export const MainChat = () => {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!text.trim()) {
+    const trimmed = text.trim();
+    if (!trimmed) {
       invoke("focus_roblox").catch((err) => console.error(err)); // we directly invoke here
       return;
     }
+
+    const didExecuteCommand = executeChatCommand(trimmed, {
+      clearMessages: () => {
+        clearMessages();
+        shouldAutoScrollRef.current = true;
+        setReplyTargetClientId(null);
+      },
+    });
+    if (didExecuteCommand) {
+      setText("");
+      invoke("focus_roblox").catch((err) => console.error(err));
+      return;
+    }
+
     const didQueue = sendMessage(
       replaceEmojiShortcodes(text),
       replyTarget?.id ?? null,
