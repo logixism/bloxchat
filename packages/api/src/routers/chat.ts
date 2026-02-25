@@ -16,7 +16,13 @@ export const chatRouter = t.router({
     }),
 
   publish: protectedProcedure
-    .input(z.object({ content: z.string(), channel: z.string() }))
+    .input(
+      z.object({
+        content: z.string(),
+        channel: z.string(),
+        replyToId: z.string().nullable().optional(),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       const limits = getChatLimitsForChannel(input.channel);
       const content = input.content.trim();
@@ -61,6 +67,7 @@ export const chatRouter = t.router({
         id: crypto.randomUUID(),
         author: ctx.user,
         content,
+        replyToId: input.replyToId ?? null,
       };
 
       globalPubSub.emit(input.channel, message);

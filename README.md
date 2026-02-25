@@ -21,6 +21,6 @@ If you just want to use the app:
 
 1. Launch **BloxChat** from your app menu/start menu.
 2. Sign in or connect as prompted by the app.
-3. Join any ROBLOX game and start chatting!
+3. Join any ROBLOX game and start chatting! You can press slash like you would in a normal ROBLOX chat, and BloxChat will automatically focus/unfocus itself as needed
 
 If a new version is available, download it from the GitHub **Releases** tab the same way.

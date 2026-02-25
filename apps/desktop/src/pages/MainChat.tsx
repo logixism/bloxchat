@@ -1,5 +1,5 @@
 import { useChat } from "../contexts/ChatContext";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { ChatInput } from "../components/ChatInput";
 import { MessageItem } from "../components/MessageItem";
 import { listen } from "@tauri-apps/api/event";
@@ -11,7 +11,7 @@ import {
   removeFavoritedMedia,
 } from "../lib/store";
 import { Button } from "../components/ui/button";
-import { Star } from "lucide-react";
+import { Star, X } from "lucide-react";
 import { replaceEmojiShortcodes } from "../lib/emoji";
 
 type MediaProbeResult = {
@@ -34,12 +34,45 @@ export const MainChat = () => {
     FavoriteMediaPreview[]
   >([]);
   const [showFavoritesPanel, setShowFavoritesPanel] = useState(false);
+  const [replyTargetClientId, setReplyTargetClientId] = useState<string | null>(
+    null,
+  );
+  const [highlightedMessageId, setHighlightedMessageId] = useState<
+    string | null
+  >(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const appWindowRef = useRef<Window | null>(null);
   const shouldAutoScrollRef = useRef(true);
+  const highlightTimeoutRef = useRef<number | null>(null);
+
+  const messageById = useMemo(
+    () => new Map(messages.map((message) => [message.id, message])),
+    [messages],
+  );
+  const replyTarget = useMemo(() => {
+    if (!replyTargetClientId) return null;
+    return (
+      messages.find((message) => message.clientId === replyTargetClientId) ??
+      null
+    );
+  }, [messages, replyTargetClientId]);
+
+  useEffect(() => {
+    if (replyTargetClientId && !replyTarget) {
+      setReplyTargetClientId(null);
+    }
+  }, [replyTargetClientId, replyTarget]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current !== null) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
@@ -74,6 +107,20 @@ export const MainChat = () => {
 
   useEffect(() => {
     const el = scrollContentRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      if (shouldAutoScrollRef.current) {
+        scrollToBottom("auto");
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
     const observer = new ResizeObserver(() => {
@@ -185,10 +232,14 @@ export const MainChat = () => {
       invoke("focus_roblox").catch((err) => console.error(err)); // we directly invoke here
       return;
     }
-    const didQueue = sendMessage(replaceEmojiShortcodes(text));
+    const didQueue = sendMessage(
+      replaceEmojiShortcodes(text),
+      replyTarget?.id ?? null,
+    );
     if (!didQueue) return;
     shouldAutoScrollRef.current = true;
     setText("");
+    setReplyTargetClientId(null);
   };
 
   const isMediaFavorited = (url: string) => favoritedMedia.includes(url);
@@ -216,23 +267,65 @@ export const MainChat = () => {
     inputRef.current?.focus();
   };
 
+  const truncateReplySnippet = (content: string, maxLength = 100) => {
+    const normalized = content.replace(/\s+/g, " ").trim();
+    if (normalized.length <= maxLength) return normalized;
+    return `${normalized.slice(0, Math.max(0, maxLength - 3))}...`;
+  };
+
+  const handleReply = (clientId: string) => {
+    setReplyTargetClientId(clientId);
+    inputRef.current?.focus();
+  };
+
+  const jumpToMessage = (messageId: string) => {
+    const escapedId =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(messageId)
+        : messageId.replace(/"/g, '\\"');
+    const element = document.querySelector(`[data-message-id="${escapedId}"]`);
+    if (!element) return;
+    shouldAutoScrollRef.current = false;
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+    if (highlightTimeoutRef.current !== null) {
+      window.clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightedMessageId((current) =>
+        current === messageId ? null : current,
+      );
+    }, 1500);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden"
       >
-        <div ref={scrollContentRef} className="flex flex-col py-4">
+        <div ref={scrollContentRef} className="flex flex-col pt-2 pb-4">
           {messages.length === 0 && (
-            <div className="text-center text-muted-foreground text-xs">
+            <div className="text-center text-muted-foreground text-xs pt-2">
               No messages yet. Say hi!
             </div>
           )}
           {messages.map((msg, index) => {
             const prev = index > 0 ? messages[index - 1] : null;
             const isContinuation = !!(
-              prev && prev.author.robloxUserId === msg.author.robloxUserId
+              prev &&
+              prev.author.robloxUserId === msg.author.robloxUserId &&
+              !msg.replyToId
             );
+            const replyTargetMessage = msg.replyToId
+              ? messageById.get(msg.replyToId)
+              : null;
+            const replyPreview = replyTargetMessage
+              ? {
+                  author: replyTargetMessage.author.displayName,
+                  content: truncateReplySnippet(replyTargetMessage.content),
+                }
+              : null;
 
             return (
               <MessageItem
@@ -241,6 +334,10 @@ export const MainChat = () => {
                 isContinuation={isContinuation}
                 onToggleFavoriteMedia={handleToggleFavoriteMedia}
                 isMediaFavorited={isMediaFavorited}
+                onReply={(message) => handleReply(message.clientId)}
+                replyPreview={replyPreview}
+                onJumpToReplyTarget={jumpToMessage}
+                isHighlighted={highlightedMessageId === msg.id}
               />
             );
           })}
@@ -249,6 +346,28 @@ export const MainChat = () => {
       </div>
 
       <div className="relative">
+        {replyTarget && (
+          <div className="flex items-center justify-between gap-3 border-t border-muted bg-muted/20 px-3 py-2 text-xs">
+            <div className="min-w-0">
+              <div className="font-semibold text-foreground">
+                Replying to {replyTarget.author.displayName}
+              </div>
+              <div className="truncate text-muted-foreground">
+                {truncateReplySnippet(replyTarget.content)}
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => setReplyTargetClientId(null)}
+              title="Cancel reply"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
         {showFavoritesPanel && (
           <div className="absolute bottom-12 right-2 z-20 w-72 max-h-72 overflow-y-auto rounded-md border border-border bg-background p-2 shadow-lg">
             {favoriteMediaPreviews.length === 0 ? (
