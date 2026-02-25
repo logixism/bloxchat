@@ -3,10 +3,18 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FormattedText } from "./FormattedText";
 import { getImageLoadingEnabled } from "../lib/store";
+import { isMentioned } from "../lib/mentions";
 import { Button } from "./ui/button";
-import { Star } from "lucide-react";
+import { Reply, Star } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { openUrl } from "@tauri-apps/plugin-opener";
+
+const timeFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const formatTimestamp = (timestamp: number) => timeFormatter.format(timestamp);
 
 type MediaProbeResult = {
   displayable: boolean;
@@ -25,6 +33,10 @@ interface MessageItemProps {
   isContinuation?: boolean;
   onToggleFavoriteMedia?: (url: string) => void;
   isMediaFavorited?: (url: string) => boolean;
+  onReply?: (message: UiChatMessage) => void;
+  replyPreview?: { author: string; content: string } | null;
+  onJumpToReplyTarget?: (replyToId: string) => void;
+  isHighlighted?: boolean;
 }
 
 interface MessageAuthorProps {
@@ -41,11 +53,11 @@ export const MessageAuthor = ({
   if (isContinuation) return null;
 
   return (
-    <span className="relative inline-grid mb-1 text-sm font-bold leading-none text-foreground chat-readable-text">
-      <span className="transition-opacity duration-150 ease-out group-hover/message-head:opacity-0">
+    <span className="mb-0.5 inline-block min-w-0 max-w-full text-sm font-bold leading-none text-foreground chat-readable-text">
+      <span className="block truncate group-hover/message-head:hidden">
         {displayName}
       </span>
-      <span className="absolute inset-0 opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:opacity-100">
+      <span className="hidden truncate group-hover/message-head:block">
         {username}
       </span>
     </span>
@@ -57,11 +69,20 @@ export const MessageItem = ({
   isContinuation = false,
   onToggleFavoriteMedia,
   isMediaFavorited,
+  onReply,
+  replyPreview,
+  onJumpToReplyTarget,
+  isHighlighted = false,
 }: MessageItemProps) => {
   const [mediaUrls, setMediaUrls] = useState<DetectedMedia[]>([]);
   const { user } = useAuth();
   const isSending = message.localStatus === "sending";
   const isFailed = message.localStatus === "failed";
+  const canReply = !isSending && !isFailed && !message.id.startsWith("local-");
+
+  const timestamp = message.clientTimestamp ?? Date.now();
+  const timeLabel = formatTimestamp(timestamp);
+  const timeTitle = new Date(timestamp).toLocaleString();
 
   useEffect(() => {
     let cancelled = false;
@@ -119,26 +140,75 @@ export const MessageItem = ({
 
   const mediaSourceUrls = mediaUrls.map((media) => media.sourceUrl);
 
-  const isMentioned =
-    message.content.includes("@everyone") ||
-    message.content.includes(`@${user?.username}`);
+  const isMentionedMessage =
+    isMentioned(message, user) || replyPreview?.author === user?.displayName;
+  const hasReplyPreview = Boolean(replyPreview && message.replyToId);
+  const replyAuthor = hasReplyPreview ? replyPreview!.author : "";
+  const replyContent = hasReplyPreview ? replyPreview!.content : "";
 
   return (
     <div
+      data-message-id={message.id}
       className={`
-        group w-full px-4 transition-colors
-        ${isMentioned ? "bg-amber-300/10 hover:bg-amber-300/20" : "hover:bg-muted/50"}
-        ${isContinuation ? "mt-0" : "mt-2"}
+        group relative w-full px-4 transition-colors ${isContinuation ? "" : "group/message-head"}
+        ${isMentionedMessage ? "bg-amber-300/10 hover:bg-amber-300/20" : "hover:bg-muted/50"}
+        ${isContinuation ? "mt-0" : "mt-2 py-1"}
         ${isSending ? "opacity-70" : ""}
+        ${isHighlighted ? "bg-brand/10" : ""}
       `}
     >
-      <div
-        className={`flex items-start gap-3 py-0 ${isContinuation ? "" : "group/message-head"}`}
-      >
+      {onReply && canReply && (
+        <button
+          type="button"
+          className="absolute right-2 top-0.5 z-10 rounded-md border border-border bg-background/90 p-1 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 cursor-pointer"
+          onClick={() => onReply(message)}
+          title="Reply"
+          aria-label="Reply"
+        >
+          <Reply className="h-3.5 w-3.5" />
+        </button>
+      )}
+
+      {hasReplyPreview ? (
+        onJumpToReplyTarget ? (
+          <button
+            type="button"
+            className="group/reply-preview relative mb-0.5 ml-14.5 flex w-[calc(100%-3.25rem)] min-w-0 items-center pl-1.5 text-left text-xs leading-4 text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
+            onClick={() => onJumpToReplyTarget(message.replyToId!)}
+            title="Jump to original message"
+            aria-label="Jump to original message"
+          >
+            {!isContinuation ? (
+              <span className="pointer-events-none absolute -left-10 top-1/2 h-2.5 w-10 rounded-tl-md border-l-2 border-t-2 border-muted-foreground/60 transition-colors group-hover/reply-preview:border-foreground/85" />
+            ) : null}
+            <span className="w-full truncate">
+              <span className="font-semibold text-foreground/80">
+                @{replyAuthor}
+              </span>
+              <span className="ml-1 text-muted-foreground">{replyContent}</span>
+            </span>
+          </button>
+        ) : (
+          <div className="relative mb-0.5 ml-13 flex w-[calc(100%-3.25rem)] min-w-0 items-center pl-1.5 text-xs leading-4 text-muted-foreground">
+            {!isContinuation ? (
+              <span className="pointer-events-none absolute -left-10 top-1/2 h-2.5 w-8 -translate-y-1/2 rounded-tl-md border-l-2 border-t-2 border-muted-foreground/60" />
+            ) : null}
+            <span className="w-full truncate">
+              <span className="font-semibold text-foreground/80">
+                @{replyAuthor}
+              </span>
+              <span className="ml-1 text-muted-foreground">{replyContent}</span>
+            </span>
+          </div>
+        )
+      ) : null}
+
+      <div className="flex w-full items-start gap-3">
+        {/* Avatar OR time column */}
         {!isContinuation ? (
           <button
             type="button"
-            className="relative shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="relative mt-0.5 block w-10 shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-2"
             onClick={() =>
               openUrl(
                 `https://roblox.com/users/${message.author.robloxUserId}/profile`,
@@ -150,24 +220,43 @@ export const MessageItem = ({
             <img
               src={message.author.picture}
               alt={`${message.author.displayName} avatar`}
-              className="h-10 w-10 rounded-full cursor-pointer transition duration-150 ease-out group-hover/message-head:ring-2 group-hover/message-head:ring-brand/40"
+              className="h-10 w-10 rounded-full cursor-pointer transition duration-150 ease-out group-hover/message-head:ring-2 group-hover/message-head:ring-primary/50"
             />
-            <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[10px] font-semibold text-white opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:bg-black/35 group-hover/message-head:opacity-100">
+            <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[10px] font-semibold text-white opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:bg-black/35">
               Profile
             </span>
           </button>
         ) : (
-          <div className="w-10 shrink-0" />
+          <div className="pointer-events-none w-10 shrink-0 pt-1.5 text-center">
+            <span
+              className="block text-[10px] leading-none text-muted-foreground opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
+              title={timeTitle}
+            >
+              {timeLabel}
+            </span>
+          </div>
         )}
 
-        <div className="flex flex-col min-w-0">
-          <MessageAuthor
-            username={message.author.username}
-            displayName={message.author.displayName}
-            isContinuation={isContinuation}
-          />
+        <div className="flex min-w-0 w-full flex-col">
+          {!isContinuation && (
+            <div className={`flex min-w-0 items-baseline gap-2`}>
+              <MessageAuthor
+                username={message.author.username}
+                displayName={message.author.displayName}
+                isContinuation={isContinuation}
+              />
+              <span
+                className="shrink-0 text-[10px] text-muted-foreground"
+                title={timeTitle}
+              >
+                {timeLabel}
+              </span>
+            </div>
+          )}
 
-          <div className="wrap-break-word text-sm leading-relaxed text-foreground/95 chat-readable-text">
+          <div
+            className={`wrap-break-word text-sm leading-relaxed text-foreground/95 chat-readable-text ${isContinuation || "mt-1"}`}
+          >
             <FormattedText
               content={message.content}
               imageUrls={mediaSourceUrls}

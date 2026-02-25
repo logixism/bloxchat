@@ -12,8 +12,8 @@ export const ChatHeader = () => {
       className="h-8 px-3 py-5 flex border-b border-border items-center justify-between bg-background select-none cursor-default z-10"
     >
       <div className="">
-        <img src="/app-icon.png" className="w-4 h-4 mr-1 inline-block" />
-        <span className="text-muted-foreground text-[12px] pointer-events-none">
+        <img src="/app-icon.png" className="w-4 h-4 mr-1.5 inline-block" />
+        <span className="text-primary text-xs pointer-events-none">
           BloxChat
         </span>
       </div>

@@ -14,6 +14,7 @@ import { getJoinMessage } from "../lib/store";
 
 export type UiChatMessage = ChatMessage & {
   clientId: string;
+  clientTimestamp: number;
   localStatus?: "sending" | "failed";
 };
 
@@ -41,7 +42,8 @@ type ChatContextType = {
   messages: UiChatMessage[];
   chatLimits: ChatLimits;
   sendError: string | null;
-  sendMessage: (text: string) => boolean;
+  sendMessage: (text: string, replyToId?: string | null) => boolean;
+  clearMessages: () => void;
 };
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -128,6 +130,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     { channel: currentJobId },
     {
       onData(message: ChatMessage) {
+        const receivedAt = Date.now();
         setMessages((prev) => {
           if (prev.some((existing) => existing.id === message.id)) {
             return prev;
@@ -135,7 +138,14 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
           const currentUserId = currentUserIdRef.current;
           if (!currentUserId || message.author.robloxUserId !== currentUserId) {
-            return [...prev, { ...message, clientId: message.id }];
+            return [
+              ...prev,
+              {
+                ...message,
+                clientId: message.id,
+                clientTimestamp: receivedAt,
+              },
+            ];
           }
 
           const matchIndex = prev.findIndex(
@@ -143,17 +153,27 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
               item.id.startsWith("local-") &&
               item.localStatus !== "failed" &&
               item.author.robloxUserId === currentUserId &&
-              item.content.trim() === message.content.trim(),
+              item.content.trim() === message.content.trim() &&
+              (item.replyToId ?? null) === (message.replyToId ?? null),
           );
 
           if (matchIndex === -1) {
-            return [...prev, { ...message, clientId: message.id }];
+            return [
+              ...prev,
+              {
+                ...message,
+                clientId: message.id,
+                clientTimestamp: receivedAt,
+              },
+            ];
           }
 
           const next = [...prev];
           next[matchIndex] = {
             ...message,
             clientId: next[matchIndex].clientId,
+            clientTimestamp:
+              next[matchIndex].clientTimestamp ?? receivedAt,
           };
           return next;
         });
@@ -194,7 +214,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const sendMessage = (text: string) => {
+  const sendMessage = (text: string, replyToId?: string | null) => {
     const content = text.trim();
     if (!content) return false;
 
@@ -203,6 +223,9 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       setSendError("You must be logged in to send messages.");
       return false;
     }
+
+    const normalizedReplyToId =
+      replyToId && !replyToId.startsWith("local-") ? replyToId : null;
 
     if (content.length > chatLimits.maxMessageLength) {
       setSendError(
@@ -231,8 +254,10 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const optimisticMessage: UiChatMessage = {
       id: localId,
       clientId: localId,
+      clientTimestamp: now,
       author,
       content,
+      replyToId: normalizedReplyToId,
       localStatus: "sending",
     };
 
@@ -248,7 +273,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     void (async () => {
       try {
         const activeJobId = await refreshCurrentJobId();
-        await publish.mutateAsync({ channel: activeJobId, content });
+        await publish.mutateAsync({
+          channel: activeJobId,
+          content,
+          replyToId: normalizedReplyToId,
+        });
 
         setMessages((prev) =>
           prev.map((message) =>
@@ -283,6 +312,11 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     return true;
   };
 
+  const clearMessages = () => {
+    setMessages([]);
+    setSendError(null);
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -293,6 +327,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         chatLimits,
         sendError,
         sendMessage,
+        clearMessages,
       }}
     >
       {children}

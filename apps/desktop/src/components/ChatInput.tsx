@@ -6,6 +6,7 @@ import {
   type EmojiSuggestion,
   replaceEmojiShortcodes,
 } from "../lib/emoji";
+import { findCommandSuggestions, type ChatCommand } from "../lib/commands";
 
 interface ChatInputProps {
   value: string;
@@ -16,7 +17,8 @@ interface ChatInputProps {
 
 type Suggestion =
   | { type: "mention"; value: string }
-  | { type: "emoji"; value: EmojiSuggestion };
+  | { type: "emoji"; value: EmojiSuggestion }
+  | { type: "command"; value: ChatCommand };
 
 export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
   ({ value, onChange, messages, maxLength }, ref) => {
@@ -72,6 +74,13 @@ export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
           value: m,
         }));
         shouldShow = matches.length > 0;
+      } else if (lastWord.startsWith("/")) {
+        const matches = findCommandSuggestions(value);
+        nextSuggestions = matches.map((command) => ({
+          type: "command",
+          value: command,
+        }));
+        shouldShow = matches.length > 0;
       }
 
       setSuggestions(nextSuggestions);
@@ -101,8 +110,10 @@ export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
 
       if (suggestion.type === "mention") {
         words[words.length - 1] = `@${suggestion.value}`;
-      } else {
+      } else if (suggestion.type === "emoji") {
         words[words.length - 1] = suggestion.value.emoji;
+      } else {
+        words[words.length - 1] = suggestion.value.command;
       }
 
       onChange(words.join(" ") + " ");
@@ -140,7 +151,9 @@ export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
                 key={
                   suggestion.type === "mention"
                     ? `mention-${suggestion.value}`
-                    : `emoji-${suggestion.value.shortcode}`
+                    : suggestion.type === "emoji"
+                      ? `emoji-${suggestion.value.shortcode}`
+                      : `command-${suggestion.value.command}`
                 }
                 className={`px-2 py-1 cursor-pointer ${
                   idx === activeIndex ? "bg-muted/50" : ""
@@ -152,13 +165,22 @@ export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
               >
                 {suggestion.type === "mention" ? (
                   suggestion.value
-                ) : (
+                ) : suggestion.type === "emoji" ? (
                   <span className="flex items-center gap-2">
                     <span className="inline-block text-base leading-none">
                       {replaceEmojiShortcodes(suggestion.value.emoji)}
                     </span>
                     <span className="text-muted-foreground">
                       :{suggestion.value.shortcode}:
+                    </span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-foreground">
+                      {suggestion.value.command}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {suggestion.value.description}
                     </span>
                   </span>
                 )}

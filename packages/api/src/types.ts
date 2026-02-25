@@ -5,6 +5,7 @@ export type ChatMessage = {
   id: string;
   author: JwtUser;
   content: string;
+  replyToId?: string | null;
 };
 
 export type ChatLimits = {

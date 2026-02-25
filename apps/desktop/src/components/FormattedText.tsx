@@ -1,6 +1,5 @@
 import React from "react";
 import { replaceEmojiShortcodes } from "../lib/emoji";
-import { useAuth } from "../contexts/AuthContext";
 
 interface FormattedTextProps {
   content: string;
@@ -131,20 +130,17 @@ export const FormattedText = ({
   imageUrls,
   tone = "default",
 }: FormattedTextProps) => {
-  const { user } = useAuth();
   const toneClasses =
     tone === "error"
       ? {
           text: "text-red-300",
           link: "text-red-200 underline decoration-red-100/80 underline-offset-2",
-          mentionSelf: "text-red-200",
-          mentionOther: "text-red-200",
+          mention: "text-red-200",
         }
       : {
           text: "text-foreground/95",
           link: "text-sky-300 underline decoration-sky-200/80 underline-offset-2",
-          mentionSelf: "text-amber-300",
-          mentionOther: "text-cyan-200",
+          mention: "text-blue-300",
         };
 
   const normalizedContent = replaceEmojiShortcodes(content);
@@ -184,12 +180,8 @@ export const FormattedText = ({
         </a>,
       );
     } else if (matchedText.startsWith("@")) {
-      const isSelf = matchedText.slice(1) === user?.username;
       parts.push(
-        <span
-          key={start}
-          className={`font-semibold ${isSelf ? toneClasses.mentionSelf : toneClasses.mentionOther}`}
-        >
+        <span key={start} className={`font-semibold ${toneClasses.mention}`}>
           {matchedText}
         </span>,
       );

@@ -3,10 +3,11 @@ use serde::Deserialize;
 use std::cmp::Ordering;
 use std::path::Path;
 use std::process::Command;
-use tauri::AppHandle;
+use std::time::Duration;
+use tauri::{AppHandle, Emitter};
 
 const GITHUB_REPO: &str = "logixism/bloxchat";
-const MSI_ASSET_NAME: &str = "BloxChat.msi";
+const UPDATE_NOTICE_EVENT: &str = "updater://about-to-install";
 
 #[derive(Debug, Deserialize)]
 struct GithubRelease {
@@ -18,6 +19,12 @@ struct GithubRelease {
 struct GithubReleaseAsset {
     name: String,
     browser_download_url: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct UpdateInstallingNotice {
+    version: String,
+    message: String,
 }
 
 fn normalize_version(version: &str) -> String {
@@ -75,11 +82,16 @@ async fn fetch_latest_release(client: &reqwest::Client) -> Result<GithubRelease>
     serde_json::from_str::<GithubRelease>(&payload).context("parse GitHub response")
 }
 
+fn is_bloxchat_msi_asset(asset_name: &str) -> bool {
+    let normalized = asset_name.trim().to_ascii_lowercase();
+    normalized.contains("bloxchat") && normalized.ends_with(".msi")
+}
+
 fn release_msi_url(release: &GithubRelease) -> Option<String> {
     release
         .assets
         .iter()
-        .find(|asset| asset.name.eq_ignore_ascii_case(MSI_ASSET_NAME))
+        .find(|asset| is_bloxchat_msi_asset(&asset.name))
         .map(|asset| asset.browser_download_url.clone())
 }
 
@@ -130,6 +142,19 @@ fn run_installer_and_exit(app: &AppHandle, installer_path: &Path) -> Result<()> 
     Ok(())
 }
 
+fn notify_about_to_install(app: &AppHandle, latest_version: &str) {
+    let payload = UpdateInstallingNotice {
+        version: latest_version.to_string(),
+        message: format!(
+            "BloxChat will close now to install v{latest_version} and reopen automatically."
+        ),
+    };
+
+    if let Err(err) = app.emit(UPDATE_NOTICE_EVENT, payload) {
+        eprintln!("updater notice failed: {err}");
+    }
+}
+
 pub(crate) async fn check_for_startup_update(app: AppHandle) {
     // Never auto-update in development/debug runs (e.g. `cargo tauri dev`).
     if cfg!(debug_assertions) {
@@ -162,12 +187,14 @@ async fn try_startup_update(app: &AppHandle) -> Result<()> {
     }
 
     let Some(msi_url) = release_msi_url(&latest_release) else {
-        eprintln!("updater skipped: release missing {MSI_ASSET_NAME}");
+        eprintln!("updater skipped: release missing a BloxChat .msi asset");
         return Ok(());
     };
 
     let installer_path = std::env::temp_dir().join(format!("BloxChat-{latest_version}.msi"));
     download_installer(&client, &msi_url, &installer_path).await?;
+    notify_about_to_install(app, &latest_version);
+    std::thread::sleep(Duration::from_secs(3));
     run_installer_and_exit(app, &installer_path)?;
     Ok(())
 }
@@ -187,5 +214,16 @@ mod tests {
         assert_eq!(compare_versions("1.2", "1.2.0"), Some(Ordering::Equal));
         assert_eq!(compare_versions("1.2.10", "1.2.9"), Some(Ordering::Greater));
         assert_eq!(compare_versions("1.0.0", "2.0.0"), Some(Ordering::Less));
+    }
+
+    #[test]
+    fn bloxchat_msi_asset_matching_is_flexible() {
+        assert!(is_bloxchat_msi_asset("BloxChat.msi"));
+        assert!(is_bloxchat_msi_asset("bloxchat-setup-x64.MSI"));
+        assert!(is_bloxchat_msi_asset(
+            "bloxchat 1.2.3 windows installer.msi"
+        ));
+        assert!(!is_bloxchat_msi_asset("BloxChat.zip"));
+        assert!(!is_bloxchat_msi_asset("OtherApp.msi"));
     }
 }

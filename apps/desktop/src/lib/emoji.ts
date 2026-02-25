@@ -25,6 +25,16 @@ const EMOJI_ENTRIES: EmojiEntry[] = data.flatMap((item: any) => {
   }));
 });
 
+const CUSTOM_EMOJI_ENTRIES: EmojiEntry[] = [
+  {
+    shortcode: "tm",
+    emoji: "™",
+    keywords: ["tm", "trademark"],
+  },
+];
+
+EMOJI_ENTRIES.push(...CUSTOM_EMOJI_ENTRIES);
+
 const EMOJI_BY_SHORTCODE = new Map(
   EMOJI_ENTRIES.map((entry) => [entry.shortcode.toLowerCase(), entry.emoji]),
 );
