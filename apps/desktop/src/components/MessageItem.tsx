@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FormattedText } from "./FormattedText";
 import { getImageLoadingEnabled } from "../lib/store";
+import { isMentioned } from "../lib/mentions";
 import { Button } from "./ui/button";
 import { Reply, Star } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -139,10 +140,8 @@ export const MessageItem = ({
 
   const mediaSourceUrls = mediaUrls.map((media) => media.sourceUrl);
 
-  const isMentioned =
-    message.content.includes("@everyone") ||
-    message.content.includes(`@${user?.username}`) ||
-    replyPreview?.author === user?.displayName;
+  const isMentionedMessage =
+    isMentioned(message, user) || replyPreview?.author === user?.displayName;
   const hasReplyPreview = Boolean(replyPreview && message.replyToId);
   const replyAuthor = hasReplyPreview ? replyPreview!.author : "";
   const replyContent = hasReplyPreview ? replyPreview!.content : "";
@@ -152,7 +151,7 @@ export const MessageItem = ({
       data-message-id={message.id}
       className={`
         group relative w-full px-4 transition-colors
-        ${isMentioned ? "bg-amber-300/10 hover:bg-amber-300/20" : "hover:bg-muted/50"}
+        ${isMentionedMessage ? "bg-amber-300/10 hover:bg-amber-300/20" : "hover:bg-muted/50"}
         ${isContinuation ? "mt-0" : "mt-2"}
         ${isSending ? "opacity-70" : ""}
         ${isHighlighted ? "bg-brand/10" : ""}
