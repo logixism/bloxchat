@@ -1,7 +1,5 @@
 import React from "react";
 import { replaceEmojiShortcodes } from "../lib/emoji";
-import { isUserMentioned } from "../lib/mentions";
-import { useAuth } from "../contexts/AuthContext";
 
 interface FormattedTextProps {
   content: string;
