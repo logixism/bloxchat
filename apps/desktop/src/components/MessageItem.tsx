@@ -150,9 +150,9 @@ export const MessageItem = ({
     <div
       data-message-id={message.id}
       className={`
-        group relative w-full px-4 transition-colors
+        group relative w-full px-4 transition-colors ${isContinuation ? "" : "group/message-head"}
         ${isMentionedMessage ? "bg-amber-300/10 hover:bg-amber-300/20" : "hover:bg-muted/50"}
-        ${isContinuation ? "mt-0" : "mt-2"}
+        ${isContinuation ? "mt-0" : "mt-2 py-1"}
         ${isSending ? "opacity-70" : ""}
         ${isHighlighted ? "bg-brand/10" : ""}
       `}
@@ -203,14 +203,12 @@ export const MessageItem = ({
         )
       ) : null}
 
-      <div
-        className={`flex w-full items-start gap-3 ${isContinuation ? "" : "group/message-head"}`}
-      >
+      <div className="flex w-full items-start gap-3">
         {/* Avatar OR time column */}
         {!isContinuation ? (
           <button
             type="button"
-            className="relative mt-0.5 block w-10 shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="relative mt-0.5 block w-10 shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-2"
             onClick={() =>
               openUrl(
                 `https://roblox.com/users/${message.author.robloxUserId}/profile`,
@@ -222,7 +220,7 @@ export const MessageItem = ({
             <img
               src={message.author.picture}
               alt={`${message.author.displayName} avatar`}
-              className="h-10 w-10 rounded-full cursor-pointer transition duration-150 ease-out group-hover/message-head:ring-2 group-hover/message-head:ring-brand"
+              className="h-10 w-10 rounded-full cursor-pointer transition duration-150 ease-out group-hover/message-head:ring-2 group-hover/message-head:ring-primary/50"
             />
             <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[10px] font-semibold text-white opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:bg-black/35">
               Profile
@@ -241,9 +239,7 @@ export const MessageItem = ({
 
         <div className="flex min-w-0 w-full flex-col">
           {!isContinuation && (
-            <div
-              className={`mb-1 flex min-w-0 items-baseline gap-2 ${hasReplyPreview ? "mt-0" : "mt-2"}`}
-            >
+            <div className={`flex min-w-0 items-baseline gap-2`}>
               <MessageAuthor
                 username={message.author.username}
                 displayName={message.author.displayName}
@@ -258,7 +254,9 @@ export const MessageItem = ({
             </div>
           )}
 
-          <div className="wrap-break-word text-sm leading-relaxed text-foreground/95 chat-readable-text">
+          <div
+            className={`wrap-break-word text-sm leading-relaxed text-foreground/95 chat-readable-text ${isContinuation || "mt-1"}`}
+          >
             <FormattedText
               content={message.content}
               imageUrls={mediaSourceUrls}
