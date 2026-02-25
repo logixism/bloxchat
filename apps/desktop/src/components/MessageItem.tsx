@@ -8,6 +8,13 @@ import { Reply, Star } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
+const timeFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const formatTimestamp = (timestamp: number) => timeFormatter.format(timestamp);
+
 type MediaProbeResult = {
   displayable: boolean;
   kind: "image" | "video" | "none";
@@ -49,7 +56,7 @@ export const MessageAuthor = ({
       <span className="transition-opacity duration-150 ease-out group-hover/message-head:opacity-0">
         {displayName}
       </span>
-      <span className="absolute inset-0 opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:opacity-100">
+      <span className="hidden group-hover/message-head:block">
         {username}
       </span>
     </span>
@@ -71,6 +78,10 @@ export const MessageItem = ({
   const isSending = message.localStatus === "sending";
   const isFailed = message.localStatus === "failed";
   const canReply = !isSending && !isFailed && !message.id.startsWith("local-");
+  
+  const timestamp = message.clientTimestamp ?? Date.now();
+  const timeLabel = formatTimestamp(timestamp);
+  const timeTitle = new Date(timestamp).toLocaleString();
 
   useEffect(() => {
     let cancelled = false;
@@ -157,71 +168,89 @@ export const MessageItem = ({
           >
             <Reply className="h-3.5 w-3.5" />
           </button>
-        )}
+{replyPreview && message.replyToId ? (
+  onJumpToReplyTarget ? (
+    <button
+      type="button"
+      className="group/reply-preview flex w-full items-center gap-2 text-left text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+      onClick={() => onJumpToReplyTarget(message.replyToId!)}
+      title="Jump to original message"
+      aria-label="Jump to original message"
+    >
+      <div className="absolute w-6 h-2 rounded-tl-lg border-muted-foreground left-9 top-2 border-t-2 border-l-2 group-hover/reply-preview:border-foreground/85" />
+      <span className="w-full truncate">
+        <span className="font-semibold text-foreground/80">
+          @{replyPreview.author}
+        </span>
+        <span className="ml-1 text-muted-foreground">
+          {replyPreview.content}
+        </span>
+      </span>
+    </button>
+  ) : (
+    <div className="flex w-full items-center gap-2 text-xs text-muted-foreground">
+      <div className="absolute w-6 h-2 rounded-tl-lg border-muted-foreground left-9 top-2 border-t-2 border-l-2" />
+      <span className="w-full truncate">
+        <span className="font-semibold text-foreground/80">
+          @{replyPreview.author}
+        </span>
+        <span className="ml-1 text-muted-foreground">
+          {replyPreview.content}
+        </span>
+      </span>
+    </div>
+  )
+) : null}
 
-        {replyPreview && message.replyToId ? (
-          onJumpToReplyTarget ? (
-            <button
-              type="button"
-              className="group/reply-preview flex w-full items-center gap-2 text-left text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-              onClick={() => onJumpToReplyTarget(message.replyToId!)}
-              title="Jump to original message"
-              aria-label="Jump to original message"
-            >
-              <div className="absolute w-6 h-2 rounded-tl-lg border-muted-foreground left-9 top-2 border-t-2 border-l-2 group-hover/reply-preview:border-foreground/85"></div>
-              <span className="w-full truncate">
-                <span className="font-semibold text-foreground/80">
-                  @{replyPreview.author}
-                </span>
-                <span className="ml-1 text-muted-foreground">
-                  {replyPreview.content}
-                </span>
-              </span>
-            </button>
-          ) : (
-            <div className="flex w-full items-center gap-2 text-xs text-muted-foreground">
-              <div className="absolute w-6 h-2 rounded-tl-lg border-muted-foreground left-9 top-2 border-t-2 border-l-2 hover:border-foreground"></div>
-              <span className="w-full truncate">
-                <span className="font-semibold text-foreground/80">
-                  @{replyPreview.author}
-                </span>
-                <span className="ml-1 text-muted-foreground">
-                  {replyPreview.content}
-                </span>
-              </span>
-            </div>
-          )
-        ) : null}
+{/* Avatar OR time column */}
+{!isContinuation ? (
+  <button
+    type="button"
+    className="absolute pt-1 left-4 shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-2"
+    onClick={() =>
+      openUrl(
+        `https://roblox.com/users/${message.author.robloxUserId}/profile`,
+      )
+    }
+    title="Open profile"
+    aria-label={`Open ${message.author.displayName}'s profile`}
+  >
+    <img
+      src={message.author.picture}
+      alt={`${message.author.displayName} avatar`}
+      className="h-10 w-10 rounded-full cursor-pointer transition duration-150 ease-out group-hover/message-head:ring-2 group-hover/message-head:ring-brand"
+    />
+    <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[10px] font-semibold text-white opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:bg-black/35">
+      Profile
+    </span>
+  </button>
+) : (
+  <div className="w-10 shrink-0 flex items-start justify-center">
+    <span
+      className="block mt-1.5 text-[10px] leading-none text-muted-foreground text-center opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
+      title={timeTitle}
+    >
+      {timeLabel}
+    </span>
+  </div>
+)}
 
-        <div className="flex flex-col w-full">
-          {!isContinuation ? (
-            <button
-              type="button"
-              className="absolute pt-1 left-4 shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand focus-visible:ring-offset-2"
-              onClick={() =>
-                openUrl(
-                  `https://roblox.com/users/${message.author.robloxUserId}/profile`,
-                )
-              }
-              title="Open profile"
-              aria-label={`Open ${message.author.displayName}'s profile`}
-            >
-              <img
-                src={message.author.picture}
-                alt={`${message.author.displayName} avatar`}
-                className="h-10 w-10 rounded-full cursor-pointer transition duration-150 ease-out group-hover/message-head:ring-2 group-hover/message-head:ring-brand"
-              />
-              <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-full bg-black/0 text-[10px] font-semibold text-white opacity-0 transition-opacity duration-150 ease-out group-hover/message-head:bg-black/35">
-                Profile
-              </span>
-            </button>
-          ) : null}
-
-          <MessageAuthor
-            username={message.author.username}
-            displayName={message.author.displayName}
-            isContinuation={isContinuation}
-          />
+<div className="flex flex-col min-w-0 w-full">
+  {!isContinuation && (
+    <div className="flex items-baseline gap-2 mb-1">
+      <MessageAuthor
+        username={message.author.username}
+        displayName={message.author.displayName}
+        isContinuation={isContinuation}
+      />
+      <span
+        className="text-[10px] text-muted-foreground"
+        title={timeTitle}
+      >
+        {timeLabel}
+      </span>
+    </div>
+  )}
 
           <div className="wrap-break-word text-sm leading-relaxed text-foreground/95 chat-readable-text">
             <FormattedText

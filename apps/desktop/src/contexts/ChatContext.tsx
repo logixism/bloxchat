@@ -14,6 +14,7 @@ import { getJoinMessage } from "../lib/store";
 
 export type UiChatMessage = ChatMessage & {
   clientId: string;
+  clientTimestamp: number;
   localStatus?: "sending" | "failed";
 };
 
@@ -128,6 +129,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     { channel: currentJobId },
     {
       onData(message: ChatMessage) {
+        const receivedAt = Date.now();
         setMessages((prev) => {
           if (prev.some((existing) => existing.id === message.id)) {
             return prev;
@@ -135,7 +137,14 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
           const currentUserId = currentUserIdRef.current;
           if (!currentUserId || message.author.robloxUserId !== currentUserId) {
-            return [...prev, { ...message, clientId: message.id }];
+            return [
+              ...prev,
+              {
+                ...message,
+                clientId: message.id,
+                clientTimestamp: receivedAt,
+              },
+            ];
           }
 
           const matchIndex = prev.findIndex(
@@ -148,13 +157,22 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           );
 
           if (matchIndex === -1) {
-            return [...prev, { ...message, clientId: message.id }];
+            return [
+              ...prev,
+              {
+                ...message,
+                clientId: message.id,
+                clientTimestamp: receivedAt,
+              },
+            ];
           }
 
           const next = [...prev];
           next[matchIndex] = {
             ...message,
             clientId: next[matchIndex].clientId,
+            clientTimestamp:
+              next[matchIndex].clientTimestamp ?? receivedAt,
           };
           return next;
         });
@@ -235,6 +253,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const optimisticMessage: UiChatMessage = {
       id: localId,
       clientId: localId,
+      clientTimestamp: now,
       author,
       content,
       replyToId: normalizedReplyToId,
