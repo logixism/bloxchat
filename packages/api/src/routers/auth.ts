@@ -25,6 +25,7 @@ const verificationSessions = new Map<string, VerificationSession>();
 const verificationCodes = new Map<string, string>();
 const refreshBuckets = new Map<string, number[]>();
 const gameVerificationBuckets = new Map<string, number[]>();
+const checkVerificationBuckets = new Map<string, number[]>();
 
 const SESSION_TTL_MS = 10 * 60 * 1000;
 const JWT_EXPIRY = "1h";
@@ -32,6 +33,8 @@ const REFRESH_RATE_LIMIT_COUNT = 4;
 const REFRESH_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const GAME_VERIFY_RATE_LIMIT_COUNT = 20;
 const GAME_VERIFY_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const CHECK_VERIFY_RATE_LIMIT_COUNT = 60;
+const CHECK_VERIFY_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 const JwtUserIdSchema = z.object({
   robloxUserId: z.string().regex(/^\d+$/, "Invalid user id"),
@@ -159,6 +162,19 @@ export const authRouter = t.router({
   checkVerification: publicProcedure
     .input(z.object({ sessionId: z.string().uuid() }))
     .mutation(({ input }) => {
+      const rateLimitResult = ratelimit({
+        buckets: checkVerificationBuckets,
+        key: input.sessionId,
+        limitCount: CHECK_VERIFY_RATE_LIMIT_COUNT,
+        limitWindowMs: CHECK_VERIFY_RATE_LIMIT_WINDOW_MS,
+      });
+      if (!rateLimitResult.result) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Rate limit hit. Try again in ${Math.ceil(rateLimitResult.retryAfterMs / 1000)}s.`,
+        });
+      }
+
       cleanupExpiredVerificationSessions();
       const session = verificationSessions.get(input.sessionId);
 

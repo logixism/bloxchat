@@ -6,7 +6,7 @@ import {
   useState,
   ReactNode,
 } from "react";
-import { trpc } from "../lib/trpc";
+import { trpc, trpcClient } from "../lib/trpc";
 import { AuthSession, getAuthSession, setAuthSession } from "../lib/store";
 
 type VerificationSession = {
@@ -23,6 +23,7 @@ interface AuthContextValue {
   verificationExpiresAt: number | null;
   verificationPlaceId: string | null;
   login: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -59,7 +60,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshMutation = trpc.auth.refresh.useMutation();
   const beginVerificationMutation = trpc.auth.beginVerification.useMutation();
-  const checkVerificationMutation = trpc.auth.checkVerification.useMutation();
 
   const refreshSession = async (clearOnAnyFailure = false) => {
     if (isRefreshingRef.current) return false;
@@ -102,6 +102,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!verificationSession || user) return;
 
     let disposed = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleNextPoll = (delayMs: number) => {
+      if (disposed) return;
+      timeout = setTimeout(() => {
+        void pollVerification();
+      }, delayMs);
+    };
 
     const pollVerification = async () => {
       if (disposed || isCheckingVerificationRef.current) return;
@@ -112,35 +120,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         isCheckingVerificationRef.current = true;
-        const result = await checkVerificationMutation.mutateAsync({
+        const result = await trpcClient.auth.checkVerification.mutate({
           sessionId: verificationSession.sessionId,
         });
 
         if (disposed) return;
         if (result.status === "verified") {
-          await applyAuthState({ jwt: result.jwt, user: result.user });
-          setVerificationSession(null);
+          try {
+            await applyAuthState({ jwt: result.jwt, user: result.user });
+          } catch (error) {
+            console.error("Failed to apply verified session:", error);
+            await clearAuthState();
+          } finally {
+            setVerificationSession(null);
+          }
+          return;
         } else if (result.status === "expired") {
           setVerificationSession(null);
+          return;
         }
       } catch (err) {
         console.error("Verification polling failed:", err);
       } finally {
         isCheckingVerificationRef.current = false;
       }
+
+      scheduleNextPoll(3_000);
     };
 
-    void pollVerification();
-    const interval = setInterval(() => {
-      void pollVerification();
-    }, 3_000);
+    scheduleNextPoll(0);
 
     return () => {
       disposed = true;
-      clearInterval(interval);
+      if (timeout) clearTimeout(timeout);
     };
   }, [
-    checkVerificationMutation,
     user,
     verificationSession?.expiresAt,
     verificationSession?.sessionId,
@@ -172,11 +186,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const logout = async () => {
+    setVerificationSession(null);
+    await clearAuthState();
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
         login,
+        logout,
         loading,
         verificationCode: verificationSession?.code ?? null,
         verificationExpiresAt: verificationSession?.expiresAt ?? null,
