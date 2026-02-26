@@ -2,7 +2,7 @@ import { IncomingMessage, ServerResponse } from "http";
 import { inferAsyncReturnType } from "@trpc/server";
 import jwt from "jsonwebtoken";
 import { env } from "./config/env";
-import { ExtendedJwtUser, JwtUser } from "./types";
+import { JwtUser } from "./types";
 
 export async function createContext({
   req,
@@ -20,12 +20,12 @@ export async function createContext({
 
   if (token) {
     try {
-      const payload = jwt.verify(token, env.JWT_SECRET) as ExtendedJwtUser;
+      const payload = jwt.verify(token, env.JWT_SECRET) as JwtUser;
       user = payload;
     } catch {}
   }
 
-  return { user };
+  return { user, headers: req.headers };
 }
 
 export type Context = inferAsyncReturnType<typeof createContext>;

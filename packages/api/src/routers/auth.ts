@@ -1,132 +1,190 @@
 import z from "zod";
-import { publicProcedure, t } from "../trpc";
+import { gameVerificationProcedure, publicProcedure, t } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { env } from "../config/env";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { ExtendedJwtUser, JwtUser } from "../types";
-import {
-  decryptSessionData,
-  encryptSessionData,
-} from "../services/sessionCrypto";
+import { JwtUser } from "../types";
+import { fetchRobloxUserProfile } from "../services/roblox";
+import { ratelimit } from "../services/rateLimit";
+import { getVerificationConfig } from "../config/verification";
 
-const RobloxTokenSchema = z.object({
-  access_token: z.string(),
-  refresh_token: z.string().optional(),
-  token_type: z.string(),
-  expires_in: z.number(),
+type AuthSession = {
+  jwt: string;
+  user: JwtUser;
+};
+
+type VerificationSession = {
+  sessionId: string;
+  code: string;
+  expiresAt: number;
+  completedSession: AuthSession | null;
+};
+
+const verificationSessions = new Map<string, VerificationSession>();
+const verificationCodes = new Map<string, string>();
+const refreshBuckets = new Map<string, number[]>();
+const gameVerificationBuckets = new Map<string, number[]>();
+
+const SESSION_TTL_MS = 10 * 60 * 1000;
+const JWT_EXPIRY = "1h";
+const REFRESH_RATE_LIMIT_COUNT = 4;
+const REFRESH_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const GAME_VERIFY_RATE_LIMIT_COUNT = 20;
+const GAME_VERIFY_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+
+const JwtUserIdSchema = z.object({
+  robloxUserId: z.string().regex(/^\d+$/, "Invalid user id"),
 });
 
-const RobloxUserSchema = z.object({
-  sub: z.string(),
-  preferred_username: z.string(),
-  nickname: z.string(),
-  picture: z.string(),
+const GameVerificationInputSchema = z.object({
+  code: z.string().trim().min(6).max(12),
+  robloxUserId: z.string().regex(/^\d+$/, "Invalid user id"),
+  username: z.string().trim().min(1),
+  displayName: z.string().trim().min(1),
+  picture: z.url(),
 });
 
-async function exchangeRobloxToken(params: Record<string, string>) {
-  const res = await fetch("https://apis.roblox.com/oauth/v1/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: env.ROBLOX_CLIENT_ID,
-      client_secret: env.ROBLOX_SECRET_KEY,
-      ...params,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "Roblox token exchange failed",
-    });
+function cleanupExpiredVerificationSessions() {
+  const now = Date.now();
+  for (const [sessionId, session] of verificationSessions.entries()) {
+    if (session.expiresAt > now) continue;
+    verificationSessions.delete(sessionId);
+    verificationCodes.delete(session.code);
   }
-
-  return RobloxTokenSchema.parse(await res.json());
 }
 
-async function fetchRobloxUser(accessToken: string) {
-  const res = await fetch("https://apis.roblox.com/oauth/v1/userinfo", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+function randomVerificationCode() {
+  const code = crypto.randomInt(100000, 1000000).toString();
+  if (!verificationCodes.has(code)) return code;
 
-  if (!res.ok) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Failed to fetch Roblox user info",
-    });
+  for (let i = 0; i < 10; i++) {
+    const nextCode = crypto.randomInt(100000, 1000000).toString();
+    if (!verificationCodes.has(nextCode)) return nextCode;
   }
 
-  return RobloxUserSchema.parse(await res.json());
+  return crypto.randomBytes(4).toString("hex").toUpperCase();
 }
 
-async function createSession(
-  tokenParams: Record<string, string>,
-  existingRefreshToken?: string,
-) {
-  const tokenData = await exchangeRobloxToken(tokenParams);
-  const userData = await fetchRobloxUser(tokenData.access_token);
-
-  const sensitiveData = {
-    at: tokenData.access_token,
-    rt: tokenData.refresh_token ?? existingRefreshToken,
-  };
-
-  const jwtToken = jwt.sign(
-    {
-      robloxUserId: userData.sub,
-      username: userData.preferred_username,
-      displayName: userData.nickname,
-      picture: userData.picture,
-      data: encryptSessionData(sensitiveData),
-    } satisfies ExtendedJwtUser,
-    env.JWT_SECRET,
-    { expiresIn: "1h" },
-  );
-
+function buildSession(user: JwtUser): AuthSession {
   return {
-    jwt: jwtToken,
-    user: {
-      robloxUserId: userData.sub,
-      username: userData.preferred_username,
-      displayName: userData.nickname,
-      picture: userData.picture,
-    } satisfies JwtUser,
+    jwt: jwt.sign(user, env.JWT_SECRET, { expiresIn: JWT_EXPIRY }),
+    user,
   };
 }
 
 export const authRouter = t.router({
-  generateAuthUrl: publicProcedure.query(() => {
-    const baseUrl = "https://apis.roblox.com/oauth/v1/authorize";
-    const state = crypto.randomBytes(16).toString("hex");
-    const params = new URLSearchParams({
-      client_id: env.ROBLOX_CLIENT_ID,
-      response_type: "code",
-      redirect_uri: "bloxchat://auth",
-      scope: "openid profile",
-      state,
-    });
+  beginVerification: publicProcedure.mutation(() => {
+    cleanupExpiredVerificationSessions();
+    const verificationConfig = getVerificationConfig();
+
+    const sessionId = crypto.randomUUID();
+    const code = randomVerificationCode();
+    const expiresAt = Date.now() + SESSION_TTL_MS;
+    const session: VerificationSession = {
+      sessionId,
+      code,
+      expiresAt,
+      completedSession: null,
+    };
+
+    verificationSessions.set(sessionId, session);
+    verificationCodes.set(code, sessionId);
 
     return {
-      url: `${baseUrl}?${params.toString()}`,
-      state,
+      sessionId,
+      code,
+      expiresAt,
+      placeId: verificationConfig.placeId,
     };
   }),
 
-  login: publicProcedure
-    .input(z.object({ code: z.string() }))
+  completeVerification: gameVerificationProcedure
+    .input(GameVerificationInputSchema)
     .mutation(async ({ input }) => {
-      return createSession({
-        grant_type: "authorization_code",
-        code: input.code,
-        redirect_uri: "bloxchat://auth",
+      cleanupExpiredVerificationSessions();
+      const rateLimitResult = ratelimit({
+        buckets: gameVerificationBuckets,
+        key: input.robloxUserId,
+        limitCount: GAME_VERIFY_RATE_LIMIT_COUNT,
+        limitWindowMs: GAME_VERIFY_RATE_LIMIT_WINDOW_MS,
       });
+      if (!rateLimitResult.result) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Rate limit hit. Try again in ${Math.ceil(rateLimitResult.retryAfterMs / 1000)}s.`,
+        });
+      }
+
+      const sessionId = verificationCodes.get(input.code);
+      if (!sessionId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid or expired verification code",
+        });
+      }
+
+      const session = verificationSessions.get(sessionId);
+      if (!session) {
+        verificationCodes.delete(input.code);
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid or expired verification code",
+        });
+      }
+
+      if (session.expiresAt <= Date.now()) {
+        verificationSessions.delete(sessionId);
+        verificationCodes.delete(input.code);
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Verification code expired",
+        });
+      }
+
+      const user: JwtUser = {
+        robloxUserId: input.robloxUserId,
+        username: input.username,
+        displayName: input.displayName,
+        picture: input.picture,
+      };
+
+      session.completedSession = buildSession(user);
+      verificationSessions.set(sessionId, session);
+      verificationCodes.delete(input.code);
+
+      return { ok: true };
+    }),
+
+  checkVerification: publicProcedure
+    .input(z.object({ sessionId: z.string().uuid() }))
+    .mutation(({ input }) => {
+      cleanupExpiredVerificationSessions();
+      const session = verificationSessions.get(input.sessionId);
+
+      if (!session) {
+        return { status: "expired" as const };
+      }
+
+      if (!session.completedSession) {
+        return {
+          status: "pending" as const,
+          expiresAt: session.expiresAt,
+          code: session.code,
+        };
+      }
+
+      return {
+        status: "verified" as const,
+        jwt: session.completedSession.jwt,
+        user: session.completedSession.user,
+      };
     }),
 
   refresh: publicProcedure
     .input(z.object({ jwt: z.string() }))
     .mutation(async ({ input }) => {
-      let payload: any;
+      let payload: unknown;
       try {
         payload = jwt.verify(input.jwt, env.JWT_SECRET, {
           ignoreExpiration: true,
@@ -138,21 +196,29 @@ export const authRouter = t.router({
         });
       }
 
-      const decrypted = decryptSessionData(payload.data);
-
-      if (!decrypted.rt) {
+      const parsedPayload = JwtUserIdSchema.safeParse(payload);
+      if (!parsedPayload.success) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "No refresh token",
+          message: "Invalid session payload",
         });
       }
 
-      return createSession(
-        {
-          grant_type: "refresh_token",
-          refresh_token: decrypted.rt,
-        },
-        decrypted.rt,
-      );
+      const { robloxUserId } = parsedPayload.data;
+      const rateLimitResult = ratelimit({
+        buckets: refreshBuckets,
+        key: robloxUserId,
+        limitCount: REFRESH_RATE_LIMIT_COUNT,
+        limitWindowMs: REFRESH_RATE_LIMIT_WINDOW_MS,
+      });
+      if (!rateLimitResult.result) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Rate limit hit. Try again in ${Math.ceil(rateLimitResult.retryAfterMs / 1000)}s.`,
+        });
+      }
+
+      const user = await fetchRobloxUserProfile(robloxUserId);
+      return buildSession(user);
     }),
 });

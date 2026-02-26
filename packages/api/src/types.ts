@@ -21,8 +21,4 @@ export interface JwtUser {
   picture: string;
 }
 
-export interface ExtendedJwtUser extends JwtUser {
-  data: string;
-}
-
 export type RouterOutputs = inferRouterOutputs<AppRouter>;

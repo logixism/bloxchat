@@ -1,7 +1,7 @@
 import type { RouterOutputs } from "@bloxchat/api";
 import { load } from "@tauri-apps/plugin-store";
 
-export type AuthSession = RouterOutputs["auth"]["login"];
+export type AuthSession = RouterOutputs["auth"]["refresh"];
 
 type StoreSchema = {
   auth: AuthSession | null;
