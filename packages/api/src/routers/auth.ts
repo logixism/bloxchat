@@ -43,9 +43,6 @@ const JwtUserIdSchema = z.object({
 const GameVerificationInputSchema = z.object({
   code: z.string().trim().min(6).max(12),
   robloxUserId: z.string().regex(/^\d+$/, "Invalid user id"),
-  username: z.string().trim().min(1),
-  displayName: z.string().trim().min(1),
-  picture: z.url(),
 });
 
 function cleanupExpiredVerificationSessions() {
@@ -145,12 +142,7 @@ export const authRouter = t.router({
         });
       }
 
-      const user: JwtUser = {
-        robloxUserId: input.robloxUserId,
-        username: input.username,
-        displayName: input.displayName,
-        picture: input.picture,
-      };
+      const user = await fetchRobloxUserProfile(input.robloxUserId);
 
       session.completedSession = buildSession(user);
       verificationSessions.set(sessionId, session);
