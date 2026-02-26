@@ -4,13 +4,12 @@ import { config } from "dotenv";
 config();
 
 const envSchema = z.object({
-  ROBLOX_CLIENT_ID: z.string().nonempty(),
-  ROBLOX_SECRET_KEY: z.string().nonempty(),
   JWT_SECRET: z.string().min(32).max(64),
-  ENCRYPTION_KEY: z
-    .string()
-    .length(64, "Hex encryption key must be exactly 64 characters")
-    .regex(/^[0-9a-fA-F]+$/, "Must be a valid hex string"),
+
+  // used by the roblox game
+  VERIFICATION_SECRET: z.string().min(64),
+  VERIFICATION_PLACE_ID: z.string().regex(/^\d+$/, "Must be a Roblox place id"),
+  ROBLOX_COOKIE: z.string().trim().min(1).optional(),
 
   CHAT_DEFAULT_MAX_MESSAGE_LENGTH: z.coerce
     .number()

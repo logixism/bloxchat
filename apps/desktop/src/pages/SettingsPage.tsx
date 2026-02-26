@@ -18,8 +18,10 @@ import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { Slider } from "../components/ui/slider";
+import { useAuth } from "../contexts/AuthContext";
 
 export const SettingsPage = () => {
+  const { user, logout } = useAuth();
   const [apiUrl, setApiUrlInput] = useState("");
   const [logsPath, setLogsPathInput] = useState("");
   const [activeLogsPath, setActiveLogsPath] = useState("");
@@ -30,6 +32,7 @@ export const SettingsPage = () => {
   const [appVersion, setAppVersion] = useState("Unknown");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [error, setError] = useState("");
   const [initialApiUrl, setInitialApiUrl] = useState("");
   const [initialLogsPath, setInitialLogsPath] = useState("");
@@ -126,6 +129,21 @@ export const SettingsPage = () => {
     }
   };
 
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    setError("");
+    try {
+      await logout();
+      navigate("/auth");
+    } catch (logoutError) {
+      setError(String(logoutError));
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   const normalizedLogsPath = (logsPath.trim() || defaultLogsPath).trim();
   const hasChanges =
     apiUrl !== initialApiUrl ||
@@ -177,7 +195,7 @@ export const SettingsPage = () => {
             <div className="space-y-1">
               <h2 className="text-sm font-semibold">Roblox Integration</h2>
               <p className="text-xs text-muted-foreground">
-                Paths used for log watching and game session detection.
+                Roblox-related settings
               </p>
             </div>
             <div className="space-y-2">
@@ -204,6 +222,22 @@ export const SettingsPage = () => {
                 Use default Path
               </Button>
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Signed in as</label>
+              <p className="text-xs text-muted-foreground">
+                {user
+                  ? `${user.displayName} (@${user.username})`
+                  : "Not signed in"}
+              </p>
+            </div>
+            <Button
+              onClick={handleLogout}
+              variant={"destructive"}
+              size={"sm"}
+              disabled={isLoading || isSaving || isLoggingOut || !user}
+            >
+              {isLoggingOut ? "Logging out..." : "Log out"}
+            </Button>
           </div>
 
           <div className="rounded-lg border border-border bg-card p-4 space-y-3">
@@ -326,7 +360,7 @@ export const SettingsPage = () => {
           <div className="flex items-center gap-2">
             <Button
               onClick={save}
-              disabled={isLoading || isSaving || !hasChanges}
+              disabled={isLoading || isSaving || isLoggingOut || !hasChanges}
             >
               {isSaving ? "Saving..." : "Save Settings"}
             </Button>
@@ -339,7 +373,7 @@ export const SettingsPage = () => {
                 navigate("/");
               }}
               variant={"secondary"}
-              disabled={isLoading || isSaving}
+              disabled={isLoading || isSaving || isLoggingOut}
             >
               Cancel
             </Button>

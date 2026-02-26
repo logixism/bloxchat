@@ -5,6 +5,7 @@ import { protectedProcedure, t } from "../trpc";
 import { globalPubSub } from "../services/pubsub";
 import { TRPCError } from "@trpc/server";
 import { getChatLimitsForChannel } from "../config/chatLimits";
+import { ratelimit } from "../services/rateLimit";
 
 const messageBuckets = new Map<string, number[]>();
 
@@ -41,27 +42,18 @@ export const chatRouter = t.router({
         });
       }
 
-      const now = Date.now();
-      const cutoff = now - limits.rateLimitWindowMs;
-      const bucketKey = ctx.user.robloxUserId;
-      const bucket = (messageBuckets.get(bucketKey) ?? []).filter(
-        (timestamp) => timestamp > cutoff,
-      );
-
-      if (bucket.length >= limits.rateLimitCount) {
-        const oldest = bucket[0];
-        const retryAfterMs = Math.max(
-          0,
-          limits.rateLimitWindowMs - (now - oldest),
-        );
+      const rateLimitResult = ratelimit({
+        buckets: messageBuckets,
+        key: ctx.user.robloxUserId,
+        limitCount: limits.rateLimitCount,
+        limitWindowMs: limits.rateLimitWindowMs,
+      });
+      if (!rateLimitResult.result) {
         throw new TRPCError({
           code: "TOO_MANY_REQUESTS",
-          message: `Rate limit hit. Try again in ${Math.ceil(retryAfterMs / 1000)}s.`,
+          message: `Rate limit hit. Try again in ${Math.ceil(rateLimitResult.retryAfterMs / 1000)}s.`,
         });
       }
-
-      bucket.push(now);
-      messageBuckets.set(bucketKey, bucket);
 
       const message: ChatMessage = {
         id: crypto.randomUUID(),

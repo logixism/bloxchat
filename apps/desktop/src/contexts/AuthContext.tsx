@@ -6,15 +6,24 @@ import {
   useState,
   ReactNode,
 } from "react";
-import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
-import { trpc } from "../lib/trpc";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { trpc, trpcClient } from "../lib/trpc";
 import { AuthSession, getAuthSession, setAuthSession } from "../lib/store";
+
+type VerificationSession = {
+  sessionId: string;
+  code: string;
+  expiresAt: number;
+  placeId: string;
+};
 
 interface AuthContextValue {
   user: AuthSession["user"] | null;
   loading: boolean;
+  verificationCode: string | null;
+  verificationExpiresAt: number | null;
+  verificationPlaceId: string | null;
   login: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -23,8 +32,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthContextValue["user"]>(null);
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
+  const [verificationSession, setVerificationSession] =
+    useState<VerificationSession | null>(null);
   const isRefreshingRef = useRef(false);
-  const utils = trpc.useUtils();
+  const isCheckingVerificationRef = useRef(false);
 
   const applyAuthState = async (data: {
     jwt: string;
@@ -48,7 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshMutation = trpc.auth.refresh.useMutation();
-  const loginMutation = trpc.auth.login.useMutation();
+  const beginVerificationMutation = trpc.auth.beginVerification.useMutation();
 
   const refreshSession = async (clearOnAnyFailure = false) => {
     if (isRefreshingRef.current) return false;
@@ -88,48 +99,73 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    if (!verificationSession || user) return;
 
-    const handleUrl = async (urlStr: string) => {
+    let disposed = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleNextPoll = (delayMs: number) => {
+      if (disposed) return;
+      timeout = setTimeout(() => {
+        void pollVerification();
+      }, delayMs);
+    };
+
+    const pollVerification = async () => {
+      if (disposed || isCheckingVerificationRef.current) return;
+      if (Date.now() >= verificationSession.expiresAt) {
+        setVerificationSession(null);
+        return;
+      }
+
       try {
-        const url = new URL(urlStr);
-        const code = url.searchParams.get("code");
-        if (code) {
-          setLoading(true);
-          const data = await loginMutation.mutateAsync({ code });
-          await applyAuthState(data);
+        isCheckingVerificationRef.current = true;
+        const result = await trpcClient.auth.checkVerification.mutate({
+          sessionId: verificationSession.sessionId,
+        });
+
+        if (disposed) return;
+        if (result.status === "verified") {
+          try {
+            await applyAuthState({ jwt: result.jwt, user: result.user });
+          } catch (error) {
+            console.error("Failed to apply verified session:", error);
+            await clearAuthState();
+          } finally {
+            setVerificationSession(null);
+          }
+          return;
+        } else if (result.status === "expired") {
+          setVerificationSession(null);
+          return;
         }
       } catch (err) {
-        console.error("Auth callback error:", err);
+        console.error("Verification polling failed:", err);
       } finally {
-        setLoading(false);
-      }
-    };
-
-    const setupDeepLinks = async () => {
-      const startUrls = await getCurrent();
-      const urls = Array.isArray(startUrls) ? startUrls : [startUrls];
-      for (const url of urls) {
-        if (url) await handleUrl(url);
+        isCheckingVerificationRef.current = false;
       }
 
-      unlisten = await onOpenUrl((urls) => {
-        urls.forEach(handleUrl);
-      });
+      scheduleNextPoll(3_000);
     };
 
-    setupDeepLinks();
+    scheduleNextPoll(0);
+
     return () => {
-      if (unlisten) unlisten();
+      disposed = true;
+      if (timeout) clearTimeout(timeout);
     };
-  }, []);
+  }, [
+    user,
+    verificationSession?.expiresAt,
+    verificationSession?.sessionId,
+  ]);
 
   useEffect(() => {
     if (!authReady || !user) return;
 
     const interval = setInterval(
       () => {
-        refreshSession();
+        void refreshSession();
       },
       45 * 60 * 1000,
     );
@@ -138,16 +174,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [authReady, user?.robloxUserId]);
 
   const login = async () => {
+    setLoading(true);
     try {
-      const { url } = await utils.auth.generateAuthUrl.fetch();
-      await openUrl(url);
+      const nextVerificationSession =
+        await beginVerificationMutation.mutateAsync();
+      setVerificationSession(nextVerificationSession);
     } catch (err) {
-      console.error("Failed to start login flow", err);
+      console.error("Failed to start verification flow", err);
+    } finally {
+      setLoading(false);
     }
   };
 
+  const logout = async () => {
+    setVerificationSession(null);
+    await clearAuthState();
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        loading,
+        verificationCode: verificationSession?.code ?? null,
+        verificationExpiresAt: verificationSession?.expiresAt ?? null,
+        verificationPlaceId: verificationSession?.placeId ?? null,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
