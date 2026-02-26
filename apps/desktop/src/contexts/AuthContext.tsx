@@ -167,7 +167,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       () => {
         void refreshSession();
       },
-      60 * 60 * 1000,
+      45 * 60 * 1000,
     );
 
     return () => clearInterval(interval);
