@@ -131,7 +131,7 @@ export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
           placeholder={`Chatting ${
             currentJobId === "global"
               ? "globally. If you're in a server, try rejoining."
-              : `job id ${currentJobId}`
+              : `in server ...${currentJobId.slice(-4)}`
           }`}
           className="h-10 w-full outline-none text-primary text-sm px-2 pr-16"
         />
@@ -194,4 +194,3 @@ export const ChatInput = forwardRef<HTMLInputElement, ChatInputProps>(
 );
 
 ChatInput.displayName = "ChatInput";
-
