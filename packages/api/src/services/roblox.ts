@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import z from "zod";
 import { JwtUser } from "../types";
+import { env } from "../config/env";
 
 const RobloxUserResponseSchema = z.object({
   id: z.number().int().nonnegative(),
@@ -19,14 +20,31 @@ const RobloxHeadshotResponseSchema = z.object({
 
 const RobloxUserIdSchema = z.string().regex(/^\d+$/, "Invalid user id");
 
+function getRobloxRequestInit(): RequestInit | undefined {
+  const cookie = env.ROBLOX_COOKIE?.trim();
+  if (!cookie) return undefined;
+
+  const cookieHeader = /(^|;\s*)\.ROBLOSECURITY=/.test(cookie)
+    ? cookie
+    : `.ROBLOSECURITY=${cookie}`;
+
+  return {
+    headers: {
+      Cookie: cookieHeader,
+    },
+  };
+}
+
 export async function fetchRobloxUserProfile(userId: string): Promise<JwtUser> {
   const normalizedUserId = RobloxUserIdSchema.parse(userId);
   const userIdAsNumber = Number(normalizedUserId);
+  const requestInit = getRobloxRequestInit();
 
   const [userRes, headshotRes] = await Promise.all([
-    fetch(`https://users.roblox.com/v1/users/${normalizedUserId}`),
+    fetch(`https://users.roblox.com/v1/users/${normalizedUserId}`, requestInit),
     fetch(
       `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${normalizedUserId}&size=420x420&format=Png&isCircular=false`,
+      requestInit,
     ),
   ]);
 

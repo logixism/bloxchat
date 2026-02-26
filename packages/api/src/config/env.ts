@@ -9,6 +9,7 @@ const envSchema = z.object({
   // used by the roblox game
   VERIFICATION_SECRET: z.string().min(64),
   VERIFICATION_PLACE_ID: z.string().regex(/^\d+$/, "Must be a Roblox place id"),
+  ROBLOX_COOKIE: z.string().trim().min(1).optional(),
 
   CHAT_DEFAULT_MAX_MESSAGE_LENGTH: z.coerce
     .number()
