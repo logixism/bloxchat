@@ -29,7 +29,7 @@ Release builds on Windows auto-update on startup when a newer MSI is available.
 
 ## Platform Support
 
-The desktop client is currently Windows-focused (Win32 integration is used in the Rust layer).
+The desktop client is currently Windows-focused (Win32 integration is used in the Rust layer). A contributor may, if they want to, introduce Linux/MacOS support with a PR.
 
 ## Project Layout
 
