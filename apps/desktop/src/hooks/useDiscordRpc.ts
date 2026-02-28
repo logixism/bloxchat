@@ -15,6 +15,7 @@ import {
   DISCORD_RPC_DISABLED_APP_ID,
   getDiscordRpcAppId,
 } from "../lib/store";
+import { formatChannelLabel } from "../lib/utils";
 
 type PresenceDescriptor = {
   details: string;
@@ -25,12 +26,6 @@ type PresenceDescriptor = {
 const truncateForDiscord = (value: string, maxLength = 128) => {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, Math.max(0, maxLength - 3))}...`;
-};
-
-const formatChannelLabel = (jobId: string) => {
-  if (jobId === "global") return "Global channel";
-  if (jobId.length <= 14) return `Server ${jobId}`;
-  return `Server ${jobId.slice(0, 8)}...${jobId.slice(-4)}`;
 };
 
 const buildPresenceDescriptor = (params: {
