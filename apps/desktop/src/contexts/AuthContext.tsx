@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshMutation = trpc.auth.refresh.useMutation();
   const beginVerificationMutation = trpc.auth.beginVerification.useMutation();
 
-  const refreshSession = async (clearOnAnyFailure = false) => {
+  const refreshSession = async () => {
     if (isRefreshingRef.current) return false;
 
     const saved = await getAuthSession();
@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return true;
     } catch (err) {
       const isUnauthorized = (err as any)?.data?.code === "UNAUTHORIZED";
-      if (clearOnAnyFailure || isUnauthorized) {
+      if (isUnauthorized) {
         await clearAuthState();
       }
       return false;
@@ -90,7 +90,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initAuth = async () => {
       const saved = await getAuthSession();
       if (saved?.jwt) {
-        await refreshSession(true);
+        setUser(saved.user);
+        await refreshSession();
       }
       setLoading(false);
       setAuthReady(true);
