@@ -39,5 +39,6 @@ rdev = "0.5.3"
 reqwest = "0.13.2"
 tauri-plugin-app-exit = "0.1.1"
 tauri-plugin-deep-link = "2"
+tauri-plugin-drpc = "0.1.6"
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
 tauri-plugin-single-instance = { version = "2.0.0", features = ["deep-link"] }

@@ -3,12 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import {
   DEFAULT_API_HOST,
+  DISCORD_RPC_DISABLED_APP_ID,
   getApiUrl,
+  getDiscordRpcAppId,
   getGuiOpacity,
   getImageLoadingEnabled,
   getJoinMessage,
   getLogsPath,
   setApiUrl,
+  setDiscordRpcAppId,
   setGuiOpacity,
   setImageLoadingEnabled,
   setJoinMessage,
@@ -29,6 +32,9 @@ export const SettingsPage = () => {
   const [imageLoadingEnabled, setImageLoadingEnabledInput] = useState(false);
   const [guiOpacity, setGuiOpacityInput] = useState(1);
   const [joinMessage, setJoinMessageInput] = useState("");
+  const [discordRpcAppId, setDiscordRpcAppIdInput] = useState(
+    DISCORD_RPC_DISABLED_APP_ID,
+  );
   const [appVersion, setAppVersion] = useState("Unknown");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -40,6 +46,9 @@ export const SettingsPage = () => {
     useState(false);
   const [initialJoinMessage, setInitialJoinMessage] = useState("");
   const [initialGuiOpacity, setInitialGuiOpacity] = useState(1);
+  const [initialDiscordRpcAppId, setInitialDiscordRpcAppId] = useState(
+    DISCORD_RPC_DISABLED_APP_ID,
+  );
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,6 +62,7 @@ export const SettingsPage = () => {
           currentImageLoadingEnabled,
           currentGuiOpacity,
           currentJoinMessage,
+          currentDiscordRpcAppId,
           currentVersion,
         ] = await Promise.all([
           getApiUrl(),
@@ -62,6 +72,7 @@ export const SettingsPage = () => {
           getImageLoadingEnabled(),
           getGuiOpacity(),
           getJoinMessage(),
+          getDiscordRpcAppId(),
           getVersion(),
         ]);
 
@@ -78,6 +89,8 @@ export const SettingsPage = () => {
         setJoinMessageInput(currentJoinMessage);
         setInitialJoinMessage(currentJoinMessage);
         setInitialGuiOpacity(currentGuiOpacity);
+        setDiscordRpcAppIdInput(currentDiscordRpcAppId);
+        setInitialDiscordRpcAppId(currentDiscordRpcAppId);
         setAppVersion(currentVersion);
       } catch (loadError) {
         setError(String(loadError));
@@ -99,6 +112,7 @@ export const SettingsPage = () => {
       const nextLogsPath = (logsPath.trim() || defaultLogsPath).trim();
       const nextOpacity = await setGuiOpacity(guiOpacity);
       const nextJoinMessage = await setJoinMessage(joinMessage);
+      const nextDiscordRpcAppId = await setDiscordRpcAppId(discordRpcAppId);
       const shouldReload = normalizedApiUrl !== initialApiUrl;
 
       await invoke("set_roblox_logs_path", { path: nextLogsPath });
@@ -110,6 +124,7 @@ export const SettingsPage = () => {
       setActiveLogsPath(nextLogsPath);
       setGuiOpacityInput(nextOpacity);
       setJoinMessageInput(nextJoinMessage);
+      setDiscordRpcAppIdInput(nextDiscordRpcAppId);
       document.documentElement.style.setProperty(
         "--gui-opacity",
         nextOpacity.toString(),
@@ -119,6 +134,7 @@ export const SettingsPage = () => {
       setInitialImageLoadingEnabled(imageLoadingEnabled);
       setInitialGuiOpacity(nextOpacity);
       setInitialJoinMessage(nextJoinMessage);
+      setInitialDiscordRpcAppId(nextDiscordRpcAppId);
       if (shouldReload) {
         window.location.reload();
       }
@@ -150,7 +166,8 @@ export const SettingsPage = () => {
     normalizedLogsPath !== initialLogsPath ||
     imageLoadingEnabled !== initialImageLoadingEnabled ||
     Math.abs(guiOpacity - initialGuiOpacity) > 0.0001 ||
-    joinMessage !== initialJoinMessage;
+    joinMessage !== initialJoinMessage ||
+    discordRpcAppId.trim() !== initialDiscordRpcAppId;
 
   return (
     <div className="flex h-screen w-screen text-primary p-6">
@@ -337,6 +354,32 @@ export const SettingsPage = () => {
               />
               <p className="text-xs text-muted-foreground">
                 Sent automatically when your Job ID changes.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold">Integrations</h2>
+              <p className="text-xs text-muted-foreground">
+                Third-party app integrations.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="discord-rpc-app-id" className="text-sm font-medium">
+                Discord RPC App ID
+              </label>
+              <input
+                id="discord-rpc-app-id"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                value={discordRpcAppId}
+                onChange={(event) => setDiscordRpcAppIdInput(event.target.value)}
+                disabled={isLoading || isSaving}
+                placeholder={DISCORD_RPC_DISABLED_APP_ID}
+              />
+              <p className="text-xs text-muted-foreground">
+                Use a Discord application ID. Set to -1 to disable Discord Rich
+                Presence.
               </p>
             </div>
           </div>

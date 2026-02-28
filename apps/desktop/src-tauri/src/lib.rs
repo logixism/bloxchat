@@ -34,6 +34,7 @@ pub fn run() {
         .plugin(tauri_plugin_app_exit::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_drpc::init())
         .setup(move |app| {
             tauri::async_runtime::spawn(updater::check_for_startup_update(app.handle().clone()));
             roblox::start_log_watcher(initial_logs_path.clone(), watcher_control_rx);

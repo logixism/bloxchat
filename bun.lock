@@ -16,7 +16,7 @@
     },
     "apps/desktop": {
       "name": "@bloxchat/desktop",
-      "version": "0.1.0",
+      "version": "1.8.0",
       "dependencies": {
         "@bloxchat/api": "workspace:*",
         "@julr/vite-plugin-validate-env": "^2.2.0",
@@ -45,6 +45,7 @@
         "tailwindcss": "^4.2.0",
         "tailwindcss-animate": "^1.0.7",
         "tauri-plugin-app-exit-api": "^0.1.1",
+        "tauri-plugin-drpc": "^1.0.3",
         "zod": "^4.3.6",
       },
       "devDependencies": {
@@ -719,6 +720,8 @@
     "tapable": ["tapable@2.3.0", "", {}, "sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg=="],
 
     "tauri-plugin-app-exit-api": ["tauri-plugin-app-exit-api@0.1.1", "", { "dependencies": { "@tauri-apps/api": ">=2.0.0-beta.6" } }, "sha512-fMYfFkhXkxdkVRoPrBahXxm7LvMsGAo8I2oCwDkT1wDaKm0xGHOpIjYbefNGuQorQ6q8LwDKIkmFGEbbsYDMeg=="],
+
+    "tauri-plugin-drpc": ["tauri-plugin-drpc@1.0.3", "", { "peerDependencies": { "typescript": "^5.0.0" } }, "sha512-vl5dXhjKbl7+Nf9veW12usdmIUtZXwEf91SzxQPZlbRRJ/sjizbbQlnkUTtx6baJuGzz0KXXgP9xUhF39BdiXQ=="],
 
     "tinyglobby": ["tinyglobby@0.2.15", "", { "dependencies": { "fdir": "^6.5.0", "picomatch": "^4.0.3" } }, "sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ=="],
 

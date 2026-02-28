@@ -10,6 +10,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { LoginPage } from "./pages/LoginPage";
 import { RequireAuth } from "./components/RequireAuth";
 import { getGuiOpacity, getLogsPath } from "./lib/store";
+import { DiscordRpcBridge } from "./components/DiscordRpcBridge";
 
 type UpdateInstallingNotice = {
   version: string;
@@ -73,6 +74,7 @@ export default function App() {
           </div>
         )}
         <Router>
+          <DiscordRpcBridge />
           <Routes>
             <Route path="/" element={<MainLayout />}>
               <Route path="auth" element={<LoginPage />} />

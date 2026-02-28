@@ -10,6 +10,7 @@ type StoreSchema = {
   imageLoadingEnabled: boolean;
   guiOpacity: number;
   joinMessage: string;
+  discordRpcAppId: string;
   favoritedMedia: string[];
 };
 
@@ -23,8 +24,13 @@ const defaults: StoreSchema = {
   imageLoadingEnabled: false,
   guiOpacity: 1,
   joinMessage: "joined the channel",
+  discordRpcAppId: "1183656313130078298",
   favoritedMedia: [],
 };
+
+export const DISCORD_RPC_DISABLED_APP_ID = "-1";
+export const DISCORD_RPC_APP_ID_CHANGED_EVENT =
+  "bloxchat:discord-rpc-app-id-changed";
 
 const storePromise = load("store.json", {
   autoSave: true,
@@ -122,6 +128,41 @@ export const setJoinMessage = async (value: string) => {
   const normalized = value.trim();
   await storeSet("joinMessage", normalized || defaults.joinMessage);
   return normalized || defaults.joinMessage;
+};
+
+export const normalizeDiscordRpcAppId = (value: string | null | undefined) => {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed || trimmed === DISCORD_RPC_DISABLED_APP_ID) {
+    return DISCORD_RPC_DISABLED_APP_ID;
+  }
+
+  if (!/^\d+$/.test(trimmed)) {
+    throw new Error("Discord RPC App ID must be numeric or -1 to disable.");
+  }
+
+  return trimmed;
+};
+
+export const getDiscordRpcAppId = async () => {
+  const raw = await storeGet("discordRpcAppId");
+  try {
+    return normalizeDiscordRpcAppId(raw);
+  } catch {
+    return DISCORD_RPC_DISABLED_APP_ID;
+  }
+};
+
+export const setDiscordRpcAppId = async (value: string) => {
+  const normalized = normalizeDiscordRpcAppId(value);
+  await storeSet("discordRpcAppId", normalized);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(DISCORD_RPC_APP_ID_CHANGED_EVENT, {
+        detail: normalized,
+      }),
+    );
+  }
+  return normalized;
 };
 
 export const addFavoritedMedia = async (url: string) => {
