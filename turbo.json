@@ -21,6 +21,9 @@
     "tauri": {
       "cache": false,
       "persistent": true
+    },
+    "desktop:build": {
+      "cache": false
     }
   }
 }

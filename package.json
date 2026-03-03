@@ -15,7 +15,7 @@
     "start": "turbo run @bloxchat/server#start",
     "dev": "turbo run @bloxchat/server#dev @bloxchat/desktop#tauri",
     "desktop:version": "bun run ./scripts/bump-desktop-version.mjs",
-    "desktop:build": "cd apps/desktop; bunx tauri build",
+    "desktop:build": "turbo run @bloxchat/desktop#desktop:build",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"
