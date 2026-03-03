@@ -2,6 +2,8 @@
   "name": "@bloxchat/server",
   "type": "module",
   "scripts": {
+    "lint": "tsc -p tsconfig.json --noEmit --pretty false",
+    "check-types": "tsc -p tsconfig.json --noEmit",
     "dev": "bun run --watch src/index.ts --watch ../packages/api/src/index.ts",
     "start": "bun run src/index.ts"
   },

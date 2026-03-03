@@ -1,6 +1,10 @@
 {
   "name": "@bloxchat/api",
   "type": "module",
+  "scripts": {
+    "lint": "tsc -p tsconfig.json --noEmit --pretty false",
+    "check-types": "tsc -p tsconfig.json --noEmit"
+  },
   "exports": {
     ".": "./src/index.ts"
   },

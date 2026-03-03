@@ -4,6 +4,8 @@
   "version": "1.9.1",
   "type": "module",
   "scripts": {
+    "lint": "tsc -p tsconfig.json --noEmit --pretty false",
+    "check-types": "tsc -p tsconfig.json --noEmit",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
