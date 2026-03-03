@@ -1,6 +1,6 @@
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import { applyWSSHandler } from "@trpc/server/adapters/ws";
-import { appRouter, createContext } from "@bloxchat/api";
+import { appRouter, createContext } from "@bloxchat/api/server";
 import { WebSocketServer } from "ws";
 import cors from "cors";
 import dotenv from "dotenv";

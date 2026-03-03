@@ -1,5 +1,5 @@
-import { inferRouterOutputs } from "@trpc/server";
-import { AppRouter } from "./root";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "./root";
 
 export type ChatMessage = {
   id: string;
