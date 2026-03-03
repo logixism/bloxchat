@@ -25,7 +25,6 @@
     "packages/*"
   ],
   "dependencies": {
-    "@types/node": "^25.3.0",
-    "radix-ui": "^1.4.3"
+    "@types/node": "^25.3.0"
   }
 }
