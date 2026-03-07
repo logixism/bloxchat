@@ -2,6 +2,7 @@ import type { RouterOutputs } from "@bloxchat/api";
 import { load } from "@tauri-apps/plugin-store";
 
 export type AuthSession = RouterOutputs["auth"]["refresh"];
+export type WindowCollapseDirection = "top" | "bottom";
 
 type StoreSchema = {
   auth: AuthSession | null;
@@ -9,6 +10,7 @@ type StoreSchema = {
   logsPath: string;
   imageLoadingEnabled: boolean;
   guiOpacity: number;
+  windowCollapseDirection: WindowCollapseDirection;
   joinMessage: string;
   discordRpcAppId: string;
   favoritedMedia: string[];
@@ -23,6 +25,7 @@ const defaults: StoreSchema = {
   logsPath: "",
   imageLoadingEnabled: false,
   guiOpacity: 1,
+  windowCollapseDirection: "bottom",
   joinMessage: "joined the channel",
   discordRpcAppId: "1183656313130078298",
   favoritedMedia: [],
@@ -117,6 +120,21 @@ export const getGuiOpacity = async () =>
 export const setGuiOpacity = async (value: number) => {
   const normalized = normalizeGuiOpacity(value);
   await storeSet("guiOpacity", normalized);
+  return normalized;
+};
+
+export const normalizeWindowCollapseDirection = (
+  value: unknown,
+): WindowCollapseDirection => (value === "top" ? "top" : "bottom");
+
+export const getWindowCollapseDirection = async () =>
+  normalizeWindowCollapseDirection(await storeGet("windowCollapseDirection"));
+
+export const setWindowCollapseDirection = async (
+  value: WindowCollapseDirection,
+) => {
+  const normalized = normalizeWindowCollapseDirection(value);
+  await storeSet("windowCollapseDirection", normalized);
   return normalized;
 };
 

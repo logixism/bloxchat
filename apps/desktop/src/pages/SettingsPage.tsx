@@ -10,18 +10,22 @@ import {
   getImageLoadingEnabled,
   getJoinMessage,
   getLogsPath,
+  getWindowCollapseDirection,
   setApiUrl,
   setDiscordRpcAppId,
   setGuiOpacity,
   setImageLoadingEnabled,
   setJoinMessage,
   setLogsPath,
+  setWindowCollapseDirection,
+  type WindowCollapseDirection,
 } from "../lib/store";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { Slider } from "../components/ui/slider";
 import { useAuth } from "../contexts/AuthContext";
+import { ButtonGroup } from "../components/ui/button-group";
 
 export const SettingsPage = () => {
   const { user, logout } = useAuth();
@@ -31,6 +35,8 @@ export const SettingsPage = () => {
   const [defaultLogsPath, setDefaultLogsPath] = useState("");
   const [imageLoadingEnabled, setImageLoadingEnabledInput] = useState(false);
   const [guiOpacity, setGuiOpacityInput] = useState(1);
+  const [windowCollapseDirection, setWindowCollapseDirectionInput] =
+    useState<WindowCollapseDirection>("bottom");
   const [joinMessage, setJoinMessageInput] = useState("");
   const [discordRpcAppId, setDiscordRpcAppIdInput] = useState(
     DISCORD_RPC_DISABLED_APP_ID,
@@ -46,6 +52,8 @@ export const SettingsPage = () => {
     useState(false);
   const [initialJoinMessage, setInitialJoinMessage] = useState("");
   const [initialGuiOpacity, setInitialGuiOpacity] = useState(1);
+  const [initialWindowCollapseDirection, setInitialWindowCollapseDirection] =
+    useState<WindowCollapseDirection>("bottom");
   const [initialDiscordRpcAppId, setInitialDiscordRpcAppId] = useState(
     DISCORD_RPC_DISABLED_APP_ID,
   );
@@ -61,6 +69,7 @@ export const SettingsPage = () => {
           fallbackLogsPath,
           currentImageLoadingEnabled,
           currentGuiOpacity,
+          currentWindowCollapseDirection,
           currentJoinMessage,
           currentDiscordRpcAppId,
           currentVersion,
@@ -71,6 +80,7 @@ export const SettingsPage = () => {
           invoke<string>("get_default_roblox_logs_path"),
           getImageLoadingEnabled(),
           getGuiOpacity(),
+          getWindowCollapseDirection(),
           getJoinMessage(),
           getDiscordRpcAppId(),
           getVersion(),
@@ -86,6 +96,8 @@ export const SettingsPage = () => {
         setImageLoadingEnabledInput(currentImageLoadingEnabled);
         setInitialImageLoadingEnabled(currentImageLoadingEnabled);
         setGuiOpacityInput(currentGuiOpacity);
+        setWindowCollapseDirectionInput(currentWindowCollapseDirection);
+        setInitialWindowCollapseDirection(currentWindowCollapseDirection);
         setJoinMessageInput(currentJoinMessage);
         setInitialJoinMessage(currentJoinMessage);
         setInitialGuiOpacity(currentGuiOpacity);
@@ -111,6 +123,9 @@ export const SettingsPage = () => {
       const normalizedApiUrl = await setApiUrl(apiUrl);
       const nextLogsPath = (logsPath.trim() || defaultLogsPath).trim();
       const nextOpacity = await setGuiOpacity(guiOpacity);
+      const nextWindowCollapseDirection = await setWindowCollapseDirection(
+        windowCollapseDirection,
+      );
       const nextJoinMessage = await setJoinMessage(joinMessage);
       const nextDiscordRpcAppId = await setDiscordRpcAppId(discordRpcAppId);
       const shouldReload = normalizedApiUrl !== initialApiUrl;
@@ -123,6 +138,7 @@ export const SettingsPage = () => {
       setLogsPathInput(nextLogsPath);
       setActiveLogsPath(nextLogsPath);
       setGuiOpacityInput(nextOpacity);
+      setWindowCollapseDirectionInput(nextWindowCollapseDirection);
       setJoinMessageInput(nextJoinMessage);
       setDiscordRpcAppIdInput(nextDiscordRpcAppId);
       document.documentElement.style.setProperty(
@@ -133,6 +149,7 @@ export const SettingsPage = () => {
       setInitialLogsPath(nextLogsPath);
       setInitialImageLoadingEnabled(imageLoadingEnabled);
       setInitialGuiOpacity(nextOpacity);
+      setInitialWindowCollapseDirection(nextWindowCollapseDirection);
       setInitialJoinMessage(nextJoinMessage);
       setInitialDiscordRpcAppId(nextDiscordRpcAppId);
       if (shouldReload) {
@@ -166,6 +183,7 @@ export const SettingsPage = () => {
     normalizedLogsPath !== initialLogsPath ||
     imageLoadingEnabled !== initialImageLoadingEnabled ||
     Math.abs(guiOpacity - initialGuiOpacity) > 0.0001 ||
+    windowCollapseDirection !== initialWindowCollapseDirection ||
     joinMessage !== initialJoinMessage ||
     discordRpcAppId.trim() !== initialDiscordRpcAppId;
 
@@ -331,6 +349,45 @@ export const SettingsPage = () => {
                 Controls the transparency of the app background.
               </p>
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Window Collapse Direction
+              </label>
+              <div className="flex items-center gap-2">
+                <ButtonGroup>
+                  <Button
+                    type="button"
+                    size={"sm"}
+                    variant={
+                      windowCollapseDirection === "bottom"
+                        ? "default"
+                        : "secondary"
+                    }
+                    onClick={() => setWindowCollapseDirectionInput("bottom")}
+                    disabled={isLoading || isSaving}
+                  >
+                    Bottom
+                  </Button>
+                  <Button
+                    type="button"
+                    size={"sm"}
+                    variant={
+                      windowCollapseDirection === "top"
+                        ? "default"
+                        : "secondary"
+                    }
+                    onClick={() => setWindowCollapseDirectionInput("top")}
+                    disabled={isLoading || isSaving}
+                  >
+                    Top
+                  </Button>
+                </ButtonGroup>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Top keeps the bottom edge fixed. Bottom keeps the top edge
+                fixed.
+              </p>
+            </div>
           </div>
 
           <div className="rounded-lg border border-border bg-card p-4 space-y-3">
@@ -366,14 +423,19 @@ export const SettingsPage = () => {
               </p>
             </div>
             <div className="space-y-2">
-              <label htmlFor="discord-rpc-app-id" className="text-sm font-medium">
+              <label
+                htmlFor="discord-rpc-app-id"
+                className="text-sm font-medium"
+              >
                 Discord RPC App ID
               </label>
               <input
                 id="discord-rpc-app-id"
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                 value={discordRpcAppId}
-                onChange={(event) => setDiscordRpcAppIdInput(event.target.value)}
+                onChange={(event) =>
+                  setDiscordRpcAppIdInput(event.target.value)
+                }
                 disabled={isLoading || isSaving}
                 placeholder={DISCORD_RPC_DISABLED_APP_ID}
               />
