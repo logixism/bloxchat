@@ -36,9 +36,11 @@ export const ChatHeader = () => {
     setIsTogglingCollapse(true);
     try {
       const appWindow = getCurrentWindow();
-      const currentPosition = await appWindow.outerPosition();
-      const currentSize = await appWindow.innerSize();
-      const scaleFactor = await appWindow.scaleFactor();
+      const [currentPosition, currentSize, scaleFactor] = await Promise.all([
+        appWindow.outerPosition(),
+        appWindow.innerSize(),
+        appWindow.scaleFactor(),
+      ]);
 
       if (!isCollapsed) {
         const collapsedHeight = Math.max(
