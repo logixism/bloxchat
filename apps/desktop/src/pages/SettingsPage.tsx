@@ -355,32 +355,24 @@ export const SettingsPage = () => {
               </label>
               <div className="flex items-center gap-2">
                 <ButtonGroup>
-                  <Button
-                    type="button"
-                    size={"sm"}
-                    variant={
-                      windowCollapseDirection === "bottom"
-                        ? "default"
-                        : "secondary"
-                    }
-                    onClick={() => setWindowCollapseDirectionInput("bottom")}
-                    disabled={isLoading || isSaving}
-                  >
-                    Bottom
-                  </Button>
-                  <Button
-                    type="button"
-                    size={"sm"}
-                    variant={
-                      windowCollapseDirection === "top"
-                        ? "default"
-                        : "secondary"
-                    }
-                    onClick={() => setWindowCollapseDirectionInput("top")}
-                    disabled={isLoading || isSaving}
-                  >
-                    Top
-                  </Button>
+                  {(["bottom", "top"] satisfies WindowCollapseDirection[]).map(
+                    (option) => (
+                      <Button
+                        key={option}
+                        type="button"
+                        size={"sm"}
+                        variant={
+                          windowCollapseDirection === option
+                            ? "default"
+                            : "secondary"
+                        }
+                        onClick={() => setWindowCollapseDirectionInput(option)}
+                        disabled={isLoading || isSaving}
+                      >
+                        {option.charAt(0).toUpperCase() + option.slice(1)}
+                      </Button>
+                    ),
+                  )}
                 </ButtonGroup>
               </div>
               <p className="text-xs text-muted-foreground">
