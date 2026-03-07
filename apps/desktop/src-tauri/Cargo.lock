@@ -301,7 +301,7 @@ dependencies = [
 
 [[package]]
 name = "bloxchat-desktop"
-version = "1.9.1"
+version = "1.10.0"
 dependencies = [
  "anyhow",
  "home",

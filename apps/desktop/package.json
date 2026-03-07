@@ -1,7 +1,7 @@
 {
   "name": "@bloxchat/desktop",
   "private": true,
-  "version": "1.9.1",
+  "version": "1.10.0",
   "type": "module",
   "scripts": {
     "lint": "tsc -p tsconfig.json --noEmit --pretty false",
