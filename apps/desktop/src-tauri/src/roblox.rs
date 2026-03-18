@@ -1,21 +1,29 @@
 use anyhow::{Context, Result};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
+#[cfg(target_os = "windows")]
 use std::ffi::OsString;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+#[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, LazyLock, Mutex};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
+#[cfg(target_os = "windows")]
+use tauri::Manager;
+#[cfg(target_os = "windows")]
 use windows::Win32::Foundation::{HWND, MAX_PATH};
+#[cfg(target_os = "windows")]
 use windows::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
 };
+#[cfg(target_os = "windows")]
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, GetForegroundWindow, GetWindowThreadProcessId, IsIconic, SetForegroundWindow,
     ShowWindow, SW_RESTORE,
 };
+#[cfg(target_os = "windows")]
 use windows_strings::PCWSTR;
 
 pub(crate) struct LogSettingsState {
@@ -31,10 +39,57 @@ static LEAVE_RE: LazyLock<Regex> = LazyLock::new(|| {
         .expect("valid leave regex")
 });
 
+fn home_dir_fallback() -> PathBuf {
+    home::home_dir().unwrap_or_else(|| PathBuf::from("."))
+}
+
+#[cfg(target_os = "windows")]
 pub(crate) fn default_roblox_logs_path() -> PathBuf {
-    let mut path = home::home_dir().expect("Could not find home dir");
-    path.push("AppData\\Local\\Roblox\\logs");
+    if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+        return PathBuf::from(local_app_data).join("Roblox").join("logs");
+    }
+
+    let mut path = home_dir_fallback();
+    path.push("AppData");
+    path.push("Local");
+    path.push("Roblox");
+    path.push("logs");
     path
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn default_roblox_logs_path() -> PathBuf {
+    let candidates = sober_roblox_logs_path_candidates();
+    candidates
+        .iter()
+        .find(|path| path_has_supported_logs(path))
+        .cloned()
+        .or_else(|| candidates.iter().find(|path| path.is_dir()).cloned())
+        .or_else(|| candidates.into_iter().next())
+        .unwrap_or_else(home_dir_fallback)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+pub(crate) fn default_roblox_logs_path() -> PathBuf {
+    home_dir_fallback()
+}
+
+#[cfg(target_os = "linux")]
+fn sober_roblox_logs_path_candidates() -> Vec<PathBuf> {
+    let home = home_dir_fallback();
+    vec![
+        home.join(".var")
+            .join("app")
+            .join("org.vinegarhq.Sober")
+            .join("data")
+            .join("sober")
+            .join("sober_logs"),
+        home.join(".var")
+            .join("app")
+            .join("org.vinegarhq.Sober")
+            .join("data")
+            .join("sober"),
+    ]
 }
 
 pub(crate) fn get_roblox_logs_path(state: &LogSettingsState) -> Result<PathBuf> {
@@ -108,9 +163,64 @@ fn latest_player_log(logs_dir: &Path) -> Option<PathBuf> {
         entries
             .filter_map(|entry| entry.ok())
             .map(|entry| entry.path())
-            .filter(|path| path.to_string_lossy().contains("_Player"))
+            .filter(|path| is_supported_log_file(path))
             .max_by_key(|path| path.metadata().and_then(|m| m.modified()).ok())
     })
+}
+
+fn is_supported_log_file(path: &Path) -> bool {
+    let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+
+    file_name.contains("_Player")
+        || file_name.eq_ignore_ascii_case("latest.log")
+        || is_timestamped_log_file_name(file_name)
+}
+
+fn is_timestamped_log_file_name(file_name: &str) -> bool {
+    let Some((stem, extension)) = file_name.rsplit_once('.') else {
+        return false;
+    };
+    if !extension.eq_ignore_ascii_case("log") {
+        return false;
+    }
+
+    let mut parts = stem.split('_');
+    let (Some(date), Some(time), None) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+
+    is_segmented_number_group(date, &[4, 2, 2], '-')
+        && is_segmented_number_group(time, &[2, 2, 2], '-')
+}
+
+fn is_segmented_number_group(value: &str, widths: &[usize], separator: char) -> bool {
+    let mut parts = value.split(separator);
+
+    for width in widths {
+        let Some(part) = parts.next() else {
+            return false;
+        };
+
+        if part.len() != *width || !part.bytes().all(|byte| byte.is_ascii_digit()) {
+            return false;
+        }
+    }
+
+    parts.next().is_none()
+}
+
+fn path_has_supported_logs(path: &Path) -> bool {
+    std::fs::read_dir(path)
+        .ok()
+        .map(|entries| {
+            entries
+                .filter_map(|entry| entry.ok())
+                .map(|entry| entry.path())
+                .any(|entry_path| is_supported_log_file(&entry_path))
+        })
+        .unwrap_or(false)
 }
 
 fn job_id_from_file_tail(file: &mut File) -> Result<String> {
@@ -183,6 +293,7 @@ fn job_id_from_text_slice(text: &str) -> Option<String> {
     }
 }
 
+#[cfg(target_os = "windows")]
 pub(crate) fn should_steal_focus(app: AppHandle) -> bool {
     unsafe {
         let hwnd: HWND = GetForegroundWindow();
@@ -230,7 +341,13 @@ pub(crate) fn should_steal_focus(app: AppHandle) -> bool {
     }
 }
 
-pub(crate) fn focus_roblox() -> bool {
+#[cfg(not(target_os = "windows"))]
+pub(crate) fn should_steal_focus(_app: AppHandle) -> bool {
+    false
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn focus_roblox(_app: AppHandle) -> bool {
     const CLASS_NAME: &[u16] = &[
         b'R' as u16,
         b'o' as u16,
@@ -271,6 +388,16 @@ pub(crate) fn focus_roblox() -> bool {
 
         SetForegroundWindow(hwnd).as_bool()
     }
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn focus_roblox(_app: AppHandle) -> bool {
+    false
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+pub(crate) fn focus_roblox(_app: AppHandle) -> bool {
+    false
 }
 
 pub(crate) fn start_log_watcher(initial_path: PathBuf, path_updates_rx: mpsc::Receiver<PathBuf>) {
@@ -327,7 +454,7 @@ pub(crate) fn start_log_watcher(initial_path: PathBuf, path_updates_rx: mpsc::Re
                     Ok(Ok(event)) => {
                         if event.kind.is_modify() || event.kind.is_create() {
                             if let Some(path) = event.paths.get(0) {
-                                if !path.to_string_lossy().contains("_Player") {
+                                if !is_supported_log_file(path) {
                                     continue;
                                 }
 
@@ -369,5 +496,17 @@ mod tests {
 
         let text = format!("{join1}\nleaveGameInternal\n{join2}\nDisconnect from game\n");
         assert_eq!(job_id_from_text_slice(&text).unwrap(), DEFAULT_JOB_ID);
+    }
+
+    #[test]
+    fn supported_log_files_include_windows_and_linux_patterns() {
+        assert!(is_supported_log_file(Path::new("2026-03-18_14-38-28.log")));
+        assert!(is_supported_log_file(Path::new("2026-03-18_14-38-28.LOG")));
+        assert!(is_supported_log_file(Path::new(
+            "2026-03-18T12-00-00_Player.log"
+        )));
+        assert!(is_supported_log_file(Path::new("latest.log")));
+        assert!(!is_supported_log_file(Path::new("archive.log")));
+        assert!(!is_supported_log_file(Path::new("2026-03-18_14-38.log")));
     }
 }

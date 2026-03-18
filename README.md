@@ -4,7 +4,7 @@
 
 # BloxChat
 
-BloxChat is a Windows desktop chat companion for Roblox games.  
+BloxChat is a desktop chat companion for Roblox games.  
 It includes:
 
 - a Tauri desktop app (`apps/desktop`)
@@ -29,7 +29,13 @@ Release builds on Windows auto-update on startup when a newer MSI is available.
 
 ## Platform Support
 
-The desktop client is currently Windows-focused (Win32 integration is used in the Rust layer). A contributor may, if they want to, introduce Linux/MacOS support with a PR.
+The desktop client is still fully supported on Windows.
+
+Linux groundwork is now in place for Roblox log detection:
+
+- platform-aware default Roblox log paths
+- Sober Linux defaults for Roblox log detection
+- cross-platform log watching / Job ID parsing
 
 ## Project Layout
 
@@ -47,11 +53,31 @@ scripts/
 
 ### 1. Prerequisites
 
-- Windows 10/11
 - [Bun](https://bun.sh/) (project is pinned to `bun@1.3.8`)
 - Node.js 18+
 - Rust toolchain `1.88.0` (see `apps/desktop/src-tauri/rust-toolchain.toml`)
+
+Windows:
+
+- Windows 10/11
 - Tauri Windows prerequisites (MSVC build tools + WebView2 runtime)
+
+Fedora Linux:
+
+- Tauri Linux system dependencies:
+
+```bash
+sudo dnf install webkit2gtk4.1-devel \
+  openssl-devel \
+  curl \
+  wget \
+  file \
+  libappindicator-gtk3-devel \
+  librsvg2-devel \
+  libxdo-devel
+
+sudo dnf group install "c-development"
+```
 
 ### 2. Install Dependencies
 

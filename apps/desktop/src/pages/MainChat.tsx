@@ -228,6 +228,18 @@ export const MainChat = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const unlisten = listen("focus-chat-input", () => {
+      window.requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    });
+
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmed = text.trim();

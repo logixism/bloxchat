@@ -49,8 +49,8 @@ pub(crate) fn should_steal_focus(app: AppHandle) -> bool {
 }
 
 #[tauri::command]
-pub(crate) fn focus_roblox() -> bool {
-    crate::roblox::focus_roblox()
+pub(crate) fn focus_roblox(app: AppHandle) -> bool {
+    crate::roblox::focus_roblox(app)
 }
 
 #[tauri::command]

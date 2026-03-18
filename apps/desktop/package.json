@@ -8,7 +8,7 @@
     "check-types": "tsc -p tsconfig.json --noEmit",
     "dev": "vite",
     "build": "tsc && vite build",
-    "desktop:build": "tauri build",
+    "desktop:build": "bun ./scripts/tauri-build.mjs",
     "preview": "vite preview",
     "tauri": "tauri dev"
   },

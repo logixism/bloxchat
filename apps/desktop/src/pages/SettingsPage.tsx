@@ -58,6 +58,9 @@ export const SettingsPage = () => {
     DISCORD_RPC_DISABLED_APP_ID,
   );
   const navigate = useNavigate();
+  const isSoberDefaultPath = defaultLogsPath.includes(
+    "/.var/app/org.vinegarhq.Sober/",
+  );
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -248,6 +251,12 @@ export const SettingsPage = () => {
               <p className="text-xs text-muted-foreground">
                 Current watcher path: {activeLogsPath || "Loading..."}
               </p>
+              {isSoberDefaultPath ? (
+                <p className="text-xs text-muted-foreground">
+                  Linux defaults target Sober's log directory. Override this if
+                  your Sober install stores logs somewhere else.
+                </p>
+              ) : null}
               <Button
                 onClick={() => setLogsPathInput(defaultLogsPath)}
                 size={"sm"}
